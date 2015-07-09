@@ -21,6 +21,8 @@ typedef struct column_s {
 typedef struct column_info_s {
     oid name[MAX_OID_LEN];
     size_t name_length;
+    oid start_idx[MAX_OID_LEN];
+    size_t start_idx_length;
     int fields;
     column_t *column;
 } column_info_t;

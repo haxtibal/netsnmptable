@@ -66,6 +66,30 @@ py_netsnmp_attr_set_string(PyObject *obj, char *attr_name,
   return ret;
 }
 
+int py_netsnmp_attr_oid(PyObject* self, char *attr_name, oid* p_oid, size_t maxlen, size_t* len)
+{
+    PyObject* obj;
+    PyObject* seq;
+    int i, seqlen;
+
+    /* get the fixed index tuple from python side */
+    obj = py_netsnmp_attr_obj(self, attr_name);
+    if (!obj) {
+        return -1;
+    }
+
+    seq = PySequence_Fast(obj, "expected a sequence");
+    seqlen = PySequence_Size(obj);
+    for (i = 0; i < seqlen && i < maxlen; i++) {
+        PyObject* item = PySequence_Fast_GET_ITEM(seq, i); // returns borrowed reference.
+        p_oid[i] = PyInt_AS_LONG(item);
+    }
+    *len = i;
+    Py_DECREF(seq); // we don't reference sequence anymore
+
+    return SUCCESS;
+}
+
 PyObject * netsnmp_table(PyObject *self, PyObject *args)
 {
   PyObject *session;
@@ -143,6 +167,9 @@ PyObject * netsnmp_table(PyObject *self, PyObject *args)
             if (init_table(&tbl, tag) < 0) {
                 goto done;
             }
+
+            py_netsnmp_attr_oid(self, "start_index_oid", tbl.column_header.start_idx, sizeof(tbl.column_header.start_idx), &tbl.column_header.start_idx_length);
+
             if (get_field_names(&tbl) < 0)
                 goto done;
             val_tuple = getbulk_table_sub_entries(&tbl, ss);
@@ -152,7 +179,6 @@ PyObject * netsnmp_table(PyObject *self, PyObject *args)
 
   done:
    SAFE_FREE(oid_arr);
-   Py_DECREF(session);
    return (val_tuple ? val_tuple : NULL);
 }
 

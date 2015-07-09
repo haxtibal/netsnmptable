@@ -43,10 +43,22 @@ tbldict = table.get(vb)
 pprint.pprint(tbldict)
 ```
 
-Gives you
+Results in
 ```
-{'"First"."SubFirst"': {'aValue': '1', 'anotherValue': '1'},
- '"First"."SubSecond"': {'aValue': '2', 'anotherValue': '2'},
- '"Second"."SubFirst"': {'aValue': '3', 'anotherValue': '3'},
- '"Second"."SubSecond"': {'aValue': '4', 'anotherValue': '4'}}
+{('First', 'SubFirst'): {'aValue': '1', 'anotherValue': '1'},
+ ('First', 'SubSecond'): {'aValue': '2', 'anotherValue': '2'},
+ ('Second', 'SubFirst'): {'aValue': '3', 'anotherValue': '3'},
+ ('Second', 'SubSecond'): {'aValue': '4', 'anotherValue': '4'}}
+```
+
+Additionally, you can limit the query to certain sub index...
+```python
+table.set_start_index(("First",))
+tbldict = table.get(vb)
+pprint.pprint(tbldict)
+```
+
+```
+{('First', 'SubFirst'): {'aValue': '1', 'anotherValue': '1'},
+ ('First', 'SubSecond'): {'aValue': '2', 'anotherValue': '2'}}
 ```

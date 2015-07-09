@@ -34,12 +34,11 @@ SOFTWARE.
 #define SUCCESS (0)
 #define FAILURE (-1)
 
-void add_columndict_value(PyObject *dict, char* column_id, char* value);
-void add_rowdict_value(PyObject *dict, char* row_id, PyObject* coldict);
-
 int init_table(table_info_t* table_info, char* tablename) {
     memset(table_info->root, 0, sizeof(table_info->root));
     memset(table_info->column_header.name, 0, sizeof(table_info->column_header.name));
+    memset(table_info->column_header.start_idx, 0, sizeof(table_info->column_header.start_idx_length));
+
     table_info->rootlen = MAX_OID_LEN;
 
     if (!snmp_parse_oid(tablename, table_info->root, &table_info->rootlen)) {
@@ -55,6 +54,7 @@ int init_table(table_info_t* table_info, char* tablename) {
     table_info->column_header.column = NULL;
     table_info->column_header.fields = 0;
     table_info->column_header.name_length = 0;
+    table_info->column_header.start_idx_length = 0;
 
     return SUCCESS;
 }
@@ -70,6 +70,9 @@ void reverse_fields(column_info_t* column_info) {
     }
 }
 
+/*
+ * Table Syntax for SMIv2 is specified RFC 2578, 7.1.12. Conceptual Tables (https://tools.ietf.org/html/rfc2578#page-25).
+ */
 int get_field_names(table_info_t* table_info) {
     column_info_t* column_info = &table_info->column_header;
     char *buf = NULL, *name_p = NULL;
@@ -81,23 +84,25 @@ int get_field_names(table_info_t* table_info) {
 
 #ifndef NETSNMP_DISABLE_MIB_LOADING
     tbl = get_tree(table_info->root, table_info->rootlen, get_tree_head());
-    DBGPRINTOID("root OID: ", table_info->root, table_info->rootlen);
+    DBGPRINTOID("Table object: ", table_info->root, table_info->rootlen);
     if (tbl) {
         tbl = tbl->child_list;
         if (tbl) {
-            /* table has child list */
+            /* If a table has child list, the childs are the entry objects (aka conceptual rows).
+             * Usually there is only one conceptual row. */
             DBGPRINT("table has child list: table_info->root[%lu] = %lu\n", table_info->rootlen, tbl->subid);
+            DBGPRINTOID("Entry object: ", table_info->root, table_info->rootlen);
             table_info->root[table_info->rootlen++] = tbl->subid;
             tbl = tbl->child_list;
         } else {
             /* table has no children, setting root[<lastsuboid>] to 1 */
+            DBGPRINTOID("Table without entry object, assuming .1: ", table_info->root, table_info->rootlen);
             table_info->root[table_info->rootlen++] = 1;
             going = 0;
         }
     }
 #endif /* NETSNMP_DISABLE_MIB_LOADING */
 
-    DBGPRINT("table_info->root[%lu] = %lu\n", table_info->rootlen, table_info->root[table_info->rootlen]);
     if (sprint_realloc_objid((u_char **) &buf, &buf_len, &out_len, 1, table_info->root,
             table_info->rootlen - 1)) {
         table_info->table_name = buf;
@@ -109,13 +114,14 @@ int get_field_names(table_info_t* table_info) {
     }
     DBGPRINT("Tablename = %s\n", table_info->table_name);
 
-    /* no iterate trough column fields */
+    /* now iterate trough column fields */
     column_info->fields = 0;
     while (going) {
         column_info->fields++;
 #ifndef NETSNMP_DISABLE_MIB_LOADING
         if (tbl) {
             if (tbl->access == MIB_ACCESS_NOACCESS) {
+                DBGPRINT("Column with MAX-ACCESS = not-accessible found, skip it (maybe index field)\n", table_info->table_name);
                 column_info->fields--;
                 tbl = tbl->next_peer;
                 if (!tbl) {
@@ -123,8 +129,8 @@ int get_field_names(table_info_t* table_info) {
                 }
                 continue;
             }
-            DBGPRINT("adding column oid: table_info->root[%lu] = %lu\n", table_info->rootlen, tbl->subid);
-            table_info->root[table_info->rootlen] = tbl->subid;
+            DBGPRINT("Column Found: table_info->root[%lu] = %lu\n", table_info->rootlen, tbl->subid);
+            table_info->root[table_info->rootlen] = tbl->subid; // store the subid temporarily (gets overwritten in next while iteration)
             tbl = tbl->next_peer;
             if (!tbl)
                 going = 0;
@@ -135,9 +141,11 @@ int get_field_names(table_info_t* table_info) {
 #ifndef NETSNMP_DISABLE_MIB_LOADING
         }
 #endif /* NETSNMP_DISABLE_MIB_LOADING */
+        DBGPRINTOID("Column OID is: ", table_info->root, table_info->rootlen + 1);
         out_len = 0;
         if (sprint_realloc_objid((u_char **) &buf, &buf_len, &out_len, 1, table_info->root,
                 table_info->rootlen + 1)) {
+            DBGPRINT("Full name of column OID: %s\n", buf);
             name_p = strrchr(buf, '.');
             if (name_p == NULL) {
                 name_p = strrchr(buf, ':');
@@ -155,6 +163,9 @@ int get_field_names(table_info_t* table_info) {
             column_info->fields--;
             break;
         }
+        DBGPRINT("Extracted column name is: %s\n", name_p);
+
+        /* allocating and setting up the column header structs for each column*/
         if (column_info->fields == 1) {
             /* initial malloc on first columns */
             column_info->column = (column_t*) malloc(sizeof(column_t));
@@ -167,27 +178,24 @@ int get_field_names(table_info_t* table_info) {
         DBGPRINT("column[fields - 1].label = %s\n", column_info->column[column_info->fields - 1].label);
         column_info->column[column_info->fields - 1].subid = table_info->root[table_info->rootlen];
     }
+    /* end while (going) */
+
     if (column_info->fields == 0) {
         DBGPRINT("No column OIDs found MIB for %s\n", table_info->table_name);
         PyErr_SetString(PyExc_RuntimeError, "No column OIDs found MIB");
         return FAILURE;
     }
 
-    DBGPRINT("name_p is %s\n", name_p);
-    /* copy over from root to name */
     if (name_p) {
+        /* At least one column was found in MIB. */
         *name_p = 0;
+
+        /* copy over from the entry oid */
         memmove(column_info->name, table_info->root, table_info->rootlen * sizeof(oid));
-        column_info->name_length = table_info->rootlen + 1;
-        DBGPRINT("column_info->name[%lu] = %lu\n", column_info->name_length, column_info->name[column_info->name_length]);
-        DBGPRINTOID("column oid ", column_info->name, column_info->name_length);
-        name_p = strrchr(buf, '.');
-        if (name_p == NULL) {
-            name_p = strrchr(buf, ':');
-        }
-        if (name_p != NULL) {
-            *name_p = 0;
-        }
+
+        /* add 0 as innermost suboid */
+        column_info->name_length = table_info->rootlen; // + 1;
+        DBGPRINTOID("Column root OID for getbulk: ", column_info->name, column_info->name_length);
     }
 
     if (buf != NULL) {
@@ -197,21 +205,26 @@ int get_field_names(table_info_t* table_info) {
     return SUCCESS;
 }
 
-char is_last_var(netsnmp_variable_list *vars, oid *name, int first_n_to_compare)
+char is_valid_var(table_info_t* table_info, netsnmp_variable_list *vars)
 {
-    if (vars->type == SNMP_ENDOFMIBVIEW || memcmp(vars->name, name, first_n_to_compare * sizeof(oid)) != 0) {
-        int i;
-        for (i=0; i<first_n_to_compare; i++)
-        {
-            DBGPRINT("%lu:%lu ", vars->name[i], name[i]);
-        }
-        DBGPRINT("\nstop reason %i, %i\n", vars->type == SNMP_ENDOFMIBVIEW,
-                memcmp(vars->name, name, first_n_to_compare * sizeof(oid)) != 0);
+    if (vars->type == SNMP_ENDOFMIBVIEW) {
+        DBGPRINT("Returned varbinding is end of MIB.\n");
+        return 1;
+    } else if (memcmp(vars->name, table_info->column_header.name, table_info->rootlen * sizeof(oid)) != 0) {
+        DBGPRINT("Returned varbinding does not belong to our table.\n");
+        return 1;
+    }
+    if(memcmp(&vars->name[table_info->column_header.name_length+1], table_info->column_header.start_idx, table_info->column_header.start_idx_length * sizeof(oid)) != 0) {
+        DBGPRINT("Returned varbinding does not have requested index.\n");
         return 1;
     }
     return 0;
 }
 
+/*
+ * The representation of the returned instance identifier depends
+ * on netsnmp EXTENDED_INDEX and OID_OUTPUT_FORMAT setttings.
+ */
 char* find_instance_id(char* buf, char* table_name) {
     char* name_p;
     if (netsnmp_ds_get_boolean(NETSNMP_DS_LIBRARY_ID,
@@ -264,6 +277,8 @@ column_t* get_column_by_subid(column_info_t* columns, int subid)
 int store_value(char* row_index_str, column_t* column, netsnmp_variable_list *result_varbind, table_info_t* table) {
     PyObject* col_dict = NULL;
     char *buf = NULL;
+    char *instance_id = NULL;
+    const char delimiter [] = ".";
     size_t buf_len = 0;
     size_t out_len = 0;
 
@@ -272,18 +287,51 @@ int store_value(char* row_index_str, column_t* column, netsnmp_variable_list *re
     sprint_realloc_value((u_char **) &buf, &buf_len, &out_len, 1, result_varbind->name,
             result_varbind->name_length, result_varbind);
 
-    if (!table->rows_dict)
-        table->rows_dict = PyDict_New();
+    /* Get number of sub-instances. */
+    int i, count;
+    for (i=0, count = 1; i<strlen(row_index_str); i++)
+        if (row_index_str[i] == '.') count++;
 
-    // if first entry, add a new dictionary
-    col_dict = PyDict_GetItemString(table->rows_dict, row_index_str);
-    if (!col_dict)
-    {
-        col_dict = PyDict_New();
-        add_rowdict_value(table->rows_dict, row_index_str, col_dict);
+    /* Decompose instance string into parts. */
+    //DBGPRINT("Create tuple with %i elements\n", count);
+
+    PyObject* instance_tuple = PyTuple_New(count); // create function, we've got ownership of instance_tuple
+    PyObject* subinstance = NULL;
+    instance_id = strtok(row_index_str, delimiter);
+    i = 0;
+    while(instance_id) {
+        if (instance_id[0] == '"') {
+            //DBGPRINT("Found string-type sub instance %s\n", instance_id);
+            instance_id++;
+            subinstance = PyString_FromStringAndSize(instance_id, strlen(instance_id)-1); // create function, we've got ownership of ref-to-subinstance
+        } else {
+            //DBGPRINT("Assume int-type sub instance %s\n", instance_id);
+            subinstance = PyInt_FromString(instance_id, NULL, 10); // create function, we've got ownership of ref-to-subinstance
+        }
+        PyTuple_SetItem(instance_tuple, i++, subinstance); // PyTuple_SetItem steals ownership, now ref-to-subinstance is only borrowed
+        instance_id = strtok(NULL, delimiter);
     }
 
-    add_columndict_value(col_dict, column->label, buf);
+    if (!table->rows_dict) {
+        DBGPRINT("Creating new row dict\n");
+        table->rows_dict = PyDict_New(); // create function, we've got ownership of ref-to-rows_dict
+    }
+
+    // do we start a new row?
+    col_dict = PyDict_GetItem(table->rows_dict, instance_tuple); // PyDict_GetItem() only borrows us ref-to-col_dict
+    if (!col_dict)
+    {
+        DBGPRINT("Creating new column dict\n");
+        col_dict = PyDict_New(); // create function, we've got ownership of ref-to-col_dict
+        PyDict_SetItem(table->rows_dict, instance_tuple, col_dict); // PyDict_SetItem() handles INCREF on its own
+        Py_XDECREF(col_dict); // now ref-to-coldict is borrowed from rows_dict
+    }
+
+    DBGPRINT(" [%s] = %s\n", column->label, buf);
+
+    PyObject* val = PyString_FromString(buf); // create function, we've got ownership of ref-to-val
+    PyDict_SetItemString(col_dict, column->label, val); // PyDict_SetItem() handles INCREF on its own, we can DECREF now
+    Py_XDECREF(val);
 
     return out_len;
 }
@@ -334,9 +382,21 @@ PyObject* getbulk_table_sub_entries(table_info_t* table_info, const netsnmp_sess
     for (col = 0; col < column_info->fields; col++) {
         column = &column_info->column[col];
 
+        column->last_oid_len = column_info->name_length;
         memcpy(column->last_oid, column_info->name, column_info->name_length * sizeof(oid));
-        column->last_oid[column_info->name_length] = column->subid;
-        column->last_oid_len = column_info->name_length + 1;
+        column->last_oid[column->last_oid_len++] = column->subid;
+
+        /* append the start index, if any */
+        DBGPRINTOID("appending start index: ", table_info->column_header.start_idx, table_info->column_header.start_idx_length);
+        memcpy(&column->last_oid[column->last_oid_len],
+                table_info->column_header.start_idx,
+                table_info->column_header.start_idx_length * sizeof(oid));
+        column->last_oid_len += table_info->column_header.start_idx_length;
+
+        /* a final zero... */
+        //column->last_oid[column->last_oid_len++] = 0;
+
+        /* initially set to 1, to get it added to the first pdu */
         column->response_instances = 1;
         DBGPRINTOID("column last varbind OID", column->last_oid, column->last_oid_len);
     }
@@ -388,7 +448,7 @@ PyObject* getbulk_table_sub_entries(table_info_t* table_info, const netsnmp_sess
                             1, vars->name, vars->name_length);
                     DBGPRINT("varbind = %s\n", buf);
 
-                    if (is_last_var(vars, column_info->name, table_info->rootlen) == 1) {
+                    if (is_valid_var(table_info, vars) == 1) {
                         running = 0;
                         break;
                     }
@@ -464,24 +524,4 @@ PyObject* getbulk_table_sub_entries(table_info_t* table_info, const netsnmp_sess
         return table_info->rows_dict;
 
     return NULL;
-}
-
-/* Create dict from Column ID : Column Value */
-void add_columndict_value(PyObject *dict, char* column_id, char* value)
-{
-    if (dict)
-    {
-        PyObject* col_str = Py_BuildValue("s", column_id);
-        PyObject* val_str = Py_BuildValue("s", value);
-        PyDict_SetItem(dict, col_str, val_str);
-    }
-}
-
-void add_rowdict_value(PyObject *dict, char* row_id, PyObject* coldict)
-{
-    if (dict)
-    {
-        PyObject* col_str = Py_BuildValue("s", row_id);
-        PyDict_SetItem(dict, col_str, coldict);
-    }
 }
