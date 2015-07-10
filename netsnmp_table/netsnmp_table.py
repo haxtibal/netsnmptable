@@ -4,6 +4,7 @@ import interface
 class Table(object):
     def __init__(self, session):
         self.netsnmp_session = session
+        self.max_repeaters = 10
         self.start_index_oid = []
 
     def set_start_index(self, index_seq):

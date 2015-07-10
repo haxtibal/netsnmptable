@@ -93,50 +93,16 @@ int py_netsnmp_attr_oid(PyObject* self, char *attr_name, oid* p_oid, size_t maxl
 PyObject * netsnmp_table(PyObject *self, PyObject *args)
 {
   PyObject *session;
-// PyObject *varlist;
   PyObject *varbind;
   PyObject *val_tuple = NULL;
-//  int varlist_len = 0;
-//  int varlist_ind;
   netsnmp_session *ss;
-//  netsnmp_pdu *pdu, *response;
-//  netsnmp_variable_list *vars;
-//  struct tree *tp;
-//  int len;
-  oid *oid_arr;
-//  int oid_arr_len = MAX_OID_LEN;
-//  int type;
-//  char type_str[MAX_TYPE_NAME_LEN];
-//  int status;
-//  u_char str_buf[STR_BUF_SIZE], *str_bufp = str_buf;
-//  size_t str_buf_len = sizeof(str_buf);
-//  size_t out_len = 0;
-//  int buf_over = 0;
+  long max_repeaters;
   char *tag;
   char *iid;
-//  int getlabel_flag = NO_FLAGS;
-//  int sprintval_flag = USE_BASIC;
-//  int verbose = py_netsnmp_verbose();
-//  int old_format;
-//  int best_guess;
-//  int retry_nosuch;
-//  int err_ind;
-//  int err_num;
-//  char err_str[STR_BUF_SIZE];
-//  char *tmpstr;
-//  Py_ssize_t tmplen;
 
   table_info_t tbl;
 
-  /* Why? What? Used in snmptable.c:main */
-  netsnmp_ds_set_boolean(NETSNMP_DS_LIBRARY_ID, NETSNMP_DS_LIB_QUICK_PRINT, 1);
-
-  /* Get table string index as string, not as dotted numbers. */
-  netsnmp_ds_toggle_boolean(NETSNMP_DS_LIBRARY_ID, NETSNMP_DS_LIB_DONT_BREAKDOWN_OIDS);
-
-  oid_arr = calloc(MAX_OID_LEN, sizeof(oid));
-
-  if (oid_arr && args) {
+  if (args) {
 
     PyObject* self;
     if (!PyArg_ParseTuple(args, "OO", &self, &varbind)) {
@@ -155,15 +121,19 @@ PyObject * netsnmp_table(PyObject *self, PyObject *args)
         goto done;
     }
 
+    max_repeaters = py_netsnmp_attr_long(self, "max_repeaters");
+    if (max_repeaters < 0) {
+        PyErr_SetString(PyExc_RuntimeError, "bad max_repeaters attribute");
+        goto done;
+    }
+
     /* get the table root oid out of varbind, which is contained in args */
     if (varbind) {
         if (py_netsnmp_attr_string(varbind, "tag", &tag, NULL) < 0 ||
                 py_netsnmp_attr_string(varbind, "iid", &iid, NULL) < 0)
         {
-          //oid_arr_len = 0;
             goto done;
         } else {
-          //tp = __tag2oid(tag, iid, oid_arr, &oid_arr_len, NULL, best_guess);
             if (init_table(&tbl, tag) < 0) {
                 goto done;
             }
@@ -172,13 +142,12 @@ PyObject * netsnmp_table(PyObject *self, PyObject *args)
 
             if (get_field_names(&tbl) < 0)
                 goto done;
-            val_tuple = getbulk_table_sub_entries(&tbl, ss);
+            val_tuple = getbulk_table_sub_entries(&tbl, ss, max_repeaters);
         }
     }
   }
 
   done:
-   SAFE_FREE(oid_arr);
    return (val_tuple ? val_tuple : NULL);
 }
 

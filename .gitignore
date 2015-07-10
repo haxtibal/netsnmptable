@@ -1,0 +1,17 @@
+# ignore compiled source
+*.pyc
+*.dll
+*.o
+*.so
+
+# ignore build directory
+build/
+*.egg-info/
+
+# ignore IDE files
+.cproject
+.project
+
+# development sketches
+TODO
+HOWTO

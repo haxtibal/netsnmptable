@@ -62,3 +62,11 @@ pprint.pprint(tbldict)
 {('First', 'SubFirst'): {'aValue': '1', 'anotherValue': '1'},
  ('First', 'SubSecond'): {'aValue': '2', 'anotherValue': '2'}}
 ```
+
+## Development Resources ##
+- NetSNMP [source code](http://sourceforge.net/p/net-snmp/code)
+- NetSNMP [library API](http://www.net-snmp.org/dev/agent/group__library.html)
+- Python C Extensions: [Python/C API Reference](https://docs.python.org/2/c-api/), [Example on python.org](https://docs.python.org/2/extending/extending.html), 
+- SMIv2 Table Syntax specification, [RFC 2578, Chapter 7.1.12 Conceptual Tables](https://tools.ietf.org/html/rfc2578#section-7.1.12)
+- SMIv2 INDEX clause specification, [RFC 2578, Chapter 7.7 Mapping of the INDEX clause](https://tools.ietf.org/html/rfc2578#section-7.7)
+- SNMP getbulk specification, [RFC 3416, Chapter 4.2.3 The GetBulkRequest-PDU](https://tools.ietf.org/html/rfc3416#section-4.2.3)
