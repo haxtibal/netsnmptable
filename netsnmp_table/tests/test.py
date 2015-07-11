@@ -14,24 +14,22 @@ class BasicTests(unittest.TestCase):
             DestHost='localhost',
             Community='public')
 
-    def test_get(self):
+    def test_fetch(self):
         vb = netsnmp.Varbind('MYTABLETEST::testTable', 0)
         table = netsnmp_table.Table(self.netsnmp_session)
-        tbldict = table.get(vb)
+        tbldict = table.fetch(vb)
         pprint.pprint(tbldict)
 
-    def test_start_idx(self):
+    def test_fetch_with_row_idx(self):
         vb = netsnmp.Varbind('MYTABLETEST::testTable', 0)
         table = netsnmp_table.Table(self.netsnmp_session)
-        table.set_start_index(("First",))
-        tbldict = table.get(vb)
+        tbldict = table.fetch(vb, row_index = ("First",))
         pprint.pprint(tbldict)
 
     def test_multiple_getbulk(self):
         vb = netsnmp.Varbind('MYTABLETEST::testTable', 0)
         table = netsnmp_table.Table(self.netsnmp_session)
-        table.max_repeaters = 1
-        tbldict = table.get(vb)
+        tbldict = table.fetch(vb, max_repeaters = 1)
         pprint.pprint(tbldict)
 
 if __name__=='__main__':

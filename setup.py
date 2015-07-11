@@ -28,7 +28,7 @@ else:
     libs = re.findall(r"-l(\S+)", netsnmp_libs)
 
 setup(
-    name="netsnmp_table", version="0.01",
+    name="netsnmp_table", version="0.0.1",
     description = 'A Python package to query SNMP tables and table subsets, on top of the original Net-SNMP Python Bindings.',
     author = 'Tobias Deiminger',
     author_email = 'tobias.deiminger@gmail.com',
@@ -38,7 +38,7 @@ setup(
     test_suite = "netsnmp_table.tests.test",
 
     ext_modules = [
-       Extension("netsnmp_table.interface", ["netsnmp_table/interface.c", "netsnmp_table/table.c"],
+       Extension("netsnmp_table.interface", ["netsnmp_table/interface.c", "netsnmp_table/table.c", "netsnmp_table/util.c"],
                  library_dirs=libdirs,
                  include_dirs=incdirs,
                  libraries=libs )
