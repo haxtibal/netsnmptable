@@ -1,4 +1,5 @@
 #include <Python.h>
+#include "util.h"
 
 #if PY_VERSION_HEX < 0x02050000
 typedef int Py_ssize_t;
@@ -44,6 +45,8 @@ typedef int Py_ssize_t;
 #define USM_PRIV_PROTO_DES_LEN 10
 
 #define STRLEN(x) (x ? strlen(x) : 0)
+
+int _debug_level = 0;
 
 PyObject*
 py_netsnmp_attr_obj(PyObject *obj, char * attr_name)
@@ -131,11 +134,24 @@ int py_netsnmp_attr_oid(PyObject* self, char *attr_name, oid* p_oid, size_t maxl
     return SUCCESS;
 }
 
+int __sprint_num_objid (buf, objid, len)
+char *buf;
+oid *objid;
+int len;
+{
+   int i;
+   buf[0] = '\0';
+   for (i=0; i < len; i++) {
+    sprintf(buf,".%lu",*objid++);
+    buf += STRLEN(buf);
+   }
+   return SUCCESS;
+}
+
 #define USE_BASIC 0
 #define USE_ENUMS 1
 #define USE_SPRINT_VALUE 2
-static int
-__snprint_value (buf, buf_len, var, tp, type, flag)
+int __snprint_value (buf, buf_len, var, tp, type, flag)
 char * buf;
 size_t buf_len;
 netsnmp_variable_list * var;
@@ -249,4 +265,89 @@ int flag;
      }
    }
    return(len);
+}
+
+int __get_type_str (type, str)
+int type;
+char * str;
+{
+   switch (type) {
+    case TYPE_OBJID:
+            strcpy(str, "OBJECTID");
+            break;
+    case TYPE_OCTETSTR:
+            strcpy(str, "OCTETSTR");
+            break;
+    case TYPE_INTEGER:
+            strcpy(str, "INTEGER");
+            break;
+    case TYPE_INTEGER32:
+            strcpy(str, "INTEGER32");
+            break;
+    case TYPE_UNSIGNED32:
+            strcpy(str, "UNSIGNED32");
+            break;
+    case TYPE_NETADDR:
+            strcpy(str, "NETADDR");
+            break;
+    case TYPE_IPADDR:
+            strcpy(str, "IPADDR");
+            break;
+    case TYPE_COUNTER:
+            strcpy(str, "COUNTER");
+            break;
+    case TYPE_GAUGE:
+            strcpy(str, "GAUGE");
+            break;
+    case TYPE_TIMETICKS:
+            strcpy(str, "TICKS");
+            break;
+    case TYPE_OPAQUE:
+            strcpy(str, "OPAQUE");
+            break;
+    case TYPE_COUNTER64:
+            strcpy(str, "COUNTER64");
+            break;
+    case TYPE_NULL:
+                strcpy(str, "NULL");
+                break;
+    case SNMP_ENDOFMIBVIEW:
+                strcpy(str, "ENDOFMIBVIEW");
+                break;
+    case SNMP_NOSUCHOBJECT:
+                strcpy(str, "NOSUCHOBJECT");
+                break;
+    case SNMP_NOSUCHINSTANCE:
+                strcpy(str, "NOSUCHINSTANCE");
+                break;
+    case TYPE_UINTEGER:
+                strcpy(str, "UINTEGER"); /* historic - should not show up */
+                                          /* but it does?                  */
+                break;
+    case TYPE_NOTIFTYPE:
+        strcpy(str, "NOTIF");
+        break;
+    case TYPE_BITSTRING:
+        strcpy(str, "BITS");
+        break;
+    case TYPE_TRAPTYPE:
+        strcpy(str, "TRAP");
+        break;
+    case TYPE_OTHER: /* not sure if this is a valid leaf type?? */
+    case TYPE_NSAPADDRESS:
+        default: /* unsupported types for now */
+           strcpy(str, "");
+       if (_debug_level) printf("__get_type_str:FAILURE(%d)\n", type);
+
+           return(FAILURE);
+   }
+   return SUCCESS;
+}
+
+int __is_leaf (tp)
+struct tree* tp;
+{
+   char buf[MAX_TYPE_NAME_LEN];
+   return (tp && (__get_type_str(tp->type,buf) ||
+          (tp->parent && __get_type_str(tp->parent->type,buf) )));
 }

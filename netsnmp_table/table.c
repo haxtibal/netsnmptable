@@ -17,19 +17,8 @@ SOFTWARE.
 ******************************************************************/
 
 #include <Python.h>
+#include "util.h"
 #include "table.h"
-
-#ifdef DEBUG
-#define DEBUG_OUT 1
-#else
-#define DEBUG_OUT 0
-#endif
-
-#define DBGPRINT(...) \
-    do { if (DEBUG_OUT) fprintf(stderr, __VA_ARGS__); } while (0)
-#define DBGPRINTOID(oidname, oid, len) \
-    do { int c; if (DEBUG_OUT) { fprintf(stderr, "%s (length %lu) ", oidname, len); \
-    for (c=0; c<len; c++) fprintf(stderr, ".%lu", oid[c]); fprintf(stderr, "\n"); } } while (0)
 
 #define SUCCESS (0)
 #define FAILURE (-1)
@@ -85,19 +74,19 @@ int get_field_names(table_info_t* table_info) {
 
 #ifndef NETSNMP_DISABLE_MIB_LOADING
     tbl = get_tree(table_info->root, table_info->rootlen, get_tree_head());
-    DBGPRINTOID("Table object: ", table_info->root, table_info->rootlen);
+    DBPRTOID(D_DBG, "Table object: ", table_info->root, table_info->rootlen);
     if (tbl) {
         tbl = tbl->child_list;
         if (tbl) {
             /* If a table has child list, the childs are the entry objects (aka conceptual rows).
              * Usually there is only one conceptual row. */
-            DBGPRINT("table has child list: table_info->root[%lu] = %lu\n", table_info->rootlen, tbl->subid);
-            DBGPRINTOID("Entry object: ", table_info->root, table_info->rootlen);
+            DBPRT(D_DBG, ("table has child list: table_info->root[%lu] = %lu\n", table_info->rootlen, tbl->subid));
+            DBPRTOID(D_DBG, "Entry object: ", table_info->root, table_info->rootlen);
             table_info->root[table_info->rootlen++] = tbl->subid;
             tbl = tbl->child_list;
         } else {
             /* table has no children, setting root[<lastsuboid>] to 1 */
-            DBGPRINTOID("Table without entry object, assuming .1: ", table_info->root, table_info->rootlen);
+            DBPRTOID(D_DBG, "Table without entry object, assuming .1: ", table_info->root, table_info->rootlen);
             table_info->root[table_info->rootlen++] = 1;
             going = 0;
         }
@@ -113,7 +102,7 @@ int get_field_names(table_info_t* table_info) {
         table_info->table_name = strdup("[TRUNCATED]");
         out_len = 0;
     }
-    DBGPRINT("Tablename = %s\n", table_info->table_name);
+    DBPRT(D_DBG, ("Tablename = %s\n", table_info->table_name));
 
     /* now iterate trough column fields */
     column_info->fields = 0;
@@ -122,7 +111,7 @@ int get_field_names(table_info_t* table_info) {
 #ifndef NETSNMP_DISABLE_MIB_LOADING
         if (tbl) {
             if (tbl->access == MIB_ACCESS_NOACCESS) {
-                DBGPRINT("Column with MAX-ACCESS = not-accessible found, skip it (maybe index field)\n", table_info->table_name);
+                DBPRT(D_DBG, ("Column with MAX-ACCESS = not-accessible found, skip it (maybe index field)\n", table_info->table_name));
                 column_info->fields--;
                 tbl = tbl->next_peer;
                 if (!tbl) {
@@ -130,7 +119,7 @@ int get_field_names(table_info_t* table_info) {
                 }
                 continue;
             }
-            DBGPRINT("Column Found: table_info->root[%lu] = %lu\n", table_info->rootlen, tbl->subid);
+            DBPRT(D_DBG, ("Column Found: table_info->root[%lu] = %lu\n", table_info->rootlen, tbl->subid));
             table_info->root[table_info->rootlen] = tbl->subid; // store the subid temporarily (gets overwritten in next while iteration)
             tbl = tbl->next_peer;
             if (!tbl)
@@ -142,11 +131,11 @@ int get_field_names(table_info_t* table_info) {
 #ifndef NETSNMP_DISABLE_MIB_LOADING
         }
 #endif /* NETSNMP_DISABLE_MIB_LOADING */
-        DBGPRINTOID("Column OID is: ", table_info->root, table_info->rootlen + 1);
+        DBPRTOID(D_DBG, "Column OID is: ", table_info->root, table_info->rootlen + 1);
         out_len = 0;
         if (sprint_realloc_objid((u_char **) &buf, &buf_len, &out_len, 1, table_info->root,
                 table_info->rootlen + 1)) {
-            DBGPRINT("Full name of column OID: %s\n", buf);
+            DBPRT(D_DBG, ("Full name of column OID: %s\n", buf));
             name_p = strrchr(buf, '.');
             if (name_p == NULL) {
                 name_p = strrchr(buf, ':');
@@ -164,7 +153,7 @@ int get_field_names(table_info_t* table_info) {
             column_info->fields--;
             break;
         }
-        DBGPRINT("Extracted column name is: %s\n", name_p);
+        DBPRT(D_DBG, ("Extracted column name is: %s\n", name_p));
 
         /* allocating and setting up the column header structs for each column*/
         if (column_info->fields == 1) {
@@ -176,13 +165,13 @@ int get_field_names(table_info_t* table_info) {
                     column_info->fields * sizeof(column_t));
         }
         column_info->column[column_info->fields - 1].label = strdup(name_p);
-        DBGPRINT("column[fields - 1].label = %s\n", column_info->column[column_info->fields - 1].label);
+        DBPRT(D_DBG, ("column[fields - 1].label = %s\n", column_info->column[column_info->fields - 1].label));
         column_info->column[column_info->fields - 1].subid = table_info->root[table_info->rootlen];
     }
     /* end while (going) */
 
     if (column_info->fields == 0) {
-        DBGPRINT("No column OIDs found MIB for %s\n", table_info->table_name);
+        DBPRT(D_DBG, ("No column OIDs found MIB for %s\n", table_info->table_name));
         PyErr_SetString(PyExc_RuntimeError, "No column OIDs found MIB");
         return FAILURE;
     }
@@ -196,7 +185,7 @@ int get_field_names(table_info_t* table_info) {
 
         /* add 0 as innermost suboid */
         column_info->name_length = table_info->rootlen; // + 1;
-        DBGPRINTOID("Column root OID for getbulk: ", column_info->name, column_info->name_length);
+        DBPRTOID(D_DBG, "Column root OID for getbulk: ", column_info->name, column_info->name_length);
     }
 
     if (buf != NULL) {
@@ -209,21 +198,21 @@ int get_field_names(table_info_t* table_info) {
 char is_valid_var(table_info_t* table_info, netsnmp_variable_list *vars, int nr_in_response)
 {
     if (vars->type == SNMP_ENDOFMIBVIEW) {
-        DBGPRINT("Returned varbinding is end of MIB.\n");
+        DBPRT(D_DBG, ("Returned varbinding is end of MIB.\n"));
         return 1;
     } else if (memcmp(vars->name, table_info->column_header.name, table_info->rootlen * sizeof(oid)) != 0) {
-        DBGPRINT("Returned varbinding does not belong to our table.\n");
+        DBPRT(D_DBG, ("Returned varbinding does not belong to our table.\n"));
         return 1;
     } else if (vars->name[table_info->column_header.name_length] != table_info->column_header.column[nr_in_response].subid){
-        DBGPRINT("Returned varbinding is not a instance of expected column (%i vs %i).\n",
+        DBPRT(D_DBG, ("Returned varbinding is not a instance of expected column (%i vs %i).\n",
                 vars->name[table_info->column_header.name_length],
-                table_info->column_header.column[nr_in_response].subid);
+                table_info->column_header.column[nr_in_response].subid));
         return 1;
     } else if(memcmp(&vars->name[table_info->column_header.name_length+1], table_info->column_header.start_idx, table_info->column_header.start_idx_length * sizeof(oid)) != 0) {
-        DBGPRINT("Returned varbinding does not have requested index.\n");
+        DBPRT(D_DBG, ("Returned varbinding does not have requested index.\n"));
         oid* p = &vars->name[table_info->column_header.name_length+1];
-        DBGPRINTOID(" varbind:    ", p, table_info->column_header.start_idx_length);
-        DBGPRINTOID(" startindex: ", table_info->column_header.start_idx, table_info->column_header.start_idx_length);
+        DBPRTOID(D_DBG, " varbind:    ", p, table_info->column_header.start_idx_length);
+        DBPRTOID(D_DBG, " startindex: ", table_info->column_header.start_idx, table_info->column_header.start_idx_length);
         return 1;
     }
     return 0;
@@ -255,9 +244,9 @@ char* find_instance_id(char* buf, char* table_name) {
             name_p = strchr(name_p, '.') + 1;
             break;
         default:
-            DBGPRINT("Invalid output format: %d\n",
+            DBPRT(D_DBG, ("Invalid output format: %d\n",
                     netsnmp_ds_get_int(NETSNMP_DS_LIBRARY_ID,
-                            NETSNMP_DS_LIB_OID_OUTPUT_FORMAT));
+                            NETSNMP_DS_LIB_OID_OUTPUT_FORMAT)));
             PyErr_SetString(PyExc_RuntimeError, "Invalid output format");
             return NULL;
         }
@@ -290,7 +279,7 @@ int store_value(char* row_index_str, column_t* column, netsnmp_variable_list *re
     size_t buf_len = 0;
     size_t out_len = 0;
 
-    DBGPRINT("add row %s to result dictionary\n", row_index_str);
+    DBPRT(D_DBG, ("add row %s to result dictionary\n", row_index_str));
 
     sprint_realloc_value((u_char **) &buf, &buf_len, &out_len, 1, result_varbind->name,
             result_varbind->name_length, result_varbind);
@@ -301,7 +290,7 @@ int store_value(char* row_index_str, column_t* column, netsnmp_variable_list *re
         if (row_index_str[i] == '.') count++;
 
     /* Decompose instance string into parts. */
-    //DBGPRINT("Create tuple with %i elements\n", count);
+    //DBPRT(D_DBG, ("Create tuple with %i elements\n", count));
 
     PyObject* instance_tuple = PyTuple_New(count); // create function, we've got ownership of instance_tuple
     PyObject* subinstance = NULL;
@@ -309,11 +298,11 @@ int store_value(char* row_index_str, column_t* column, netsnmp_variable_list *re
     i = 0;
     while(instance_id) {
         if (instance_id[0] == '"') {
-            //DBGPRINT("Found string-type sub instance %s\n", instance_id);
+            //DBPRT(D_DBG, ("Found string-type sub instance %s\n", instance_id));
             instance_id++;
             subinstance = PyString_FromStringAndSize(instance_id, strlen(instance_id)-1); // create function, we've got ownership of ref-to-subinstance
         } else {
-            //DBGPRINT("Assume int-type sub instance %s\n", instance_id);
+            //DBPRT(D_DBG, ("Assume int-type sub instance %s\n", instance_id));
             subinstance = PyInt_FromString(instance_id, NULL, 10); // create function, we've got ownership of ref-to-subinstance
         }
         PyTuple_SetItem(instance_tuple, i++, subinstance); // PyTuple_SetItem steals ownership, now ref-to-subinstance is only borrowed
@@ -324,13 +313,13 @@ int store_value(char* row_index_str, column_t* column, netsnmp_variable_list *re
     col_dict = PyDict_GetItem(table->py_rows_dict, instance_tuple); // PyDict_GetItem() only borrows us ref-to-col_dict
     if (!col_dict)
     {
-        DBGPRINT("Creating new column dict\n");
+        DBPRT(D_DBG, ("Creating new column dict\n"));
         col_dict = PyDict_New(); // create function, we've got ownership of ref-to-col_dict
         PyDict_SetItem(table->py_rows_dict, instance_tuple, col_dict); // PyDict_SetItem() handles INCREF on its own
         Py_XDECREF(col_dict); // now ref-to-coldict is borrowed from rows_dict
     }
 
-    DBGPRINT(" [%s] = %s\n", column->label, buf);
+    DBPRT(D_DBG, (" [%s] = %s\n", column->label, buf));
 
     PyObject* val = PyString_FromString(buf); // create function, we've got ownership of ref-to-val
     PyDict_SetItemString(col_dict, column->label, val); // PyDict_SetItem() handles INCREF on its own, we can DECREF now
@@ -346,7 +335,7 @@ int response_err(netsnmp_pdu *response)
     netsnmp_variable_list *vars;
 
     if (response->errstat == SNMP_ERR_NOSUCHNAME) {
-        DBGPRINT("End of MIB\n");
+        DBPRT(D_DBG, ("End of MIB\n"));
     } else {
         fprintf(stderr, "Error in packet.\nReason: %s\n",
                 snmp_errstring(response->errstat));
@@ -394,7 +383,7 @@ PyObject* getbulk_table_sub_entries(table_info_t* table_info, const netsnmp_sess
         column->last_oid[column->last_oid_len++] = column->subid;
 
         /* append the start index, if any */
-        DBGPRINTOID("appending start index: ", table_info->column_header.start_idx, table_info->column_header.start_idx_length);
+        DBPRTOID(D_DBG, "appending start index: ", table_info->column_header.start_idx, table_info->column_header.start_idx_length);
         memcpy(&column->last_oid[column->last_oid_len],
                 table_info->column_header.start_idx,
                 table_info->column_header.start_idx_length * sizeof(oid));
@@ -404,10 +393,10 @@ PyObject* getbulk_table_sub_entries(table_info_t* table_info, const netsnmp_sess
         column->last_oid[column->last_oid_len++] = 0;
 
         /* initially set to 1, to get it added to the first pdu */
-        DBGPRINTOID("column last varbind OID", column->last_oid, column->last_oid_len);
+        DBPRTOID(D_DBG, "column last varbind OID", column->last_oid, column->last_oid_len);
     }
 
-    DBGPRINT("max_repeaters = %i\n", max_repeaters);
+    DBPRT(D_DBG, ("max_repeaters = %i\n", max_repeaters));
     while (running) {
         /*
          * create PDU for GETBULK request and add object name to request
@@ -421,7 +410,7 @@ PyObject* getbulk_table_sub_entries(table_info_t* table_info, const netsnmp_sess
 
             /* column_varbinds is updated during each resonse parsing */
             if (!column->end) {
-                DBGPRINTOID("add oid to getbulk request pdu", column->last_oid, column->last_oid_len);
+                DBPRTOID(D_DBG, "add oid to getbulk request pdu", column->last_oid, column->last_oid_len);
                 snmp_add_null_var(pdu, column->last_oid, column->last_oid_len);
             }
             column->last_var = NULL;
@@ -431,13 +420,13 @@ PyObject* getbulk_table_sub_entries(table_info_t* table_info, const netsnmp_sess
         /*
          * do the request
          */
-        DBGPRINT("do getbulk request\n");
-        DBGPRINT("session - version %lu, community %s\n", ss->version, ss->community);
+        DBPRT(D_DBG, ("do getbulk request\n"));
+        DBPRT(D_DBG, ("session - version %lu, community %s\n", ss->version, ss->community));
         status = snmp_synch_response(ss, pdu, &response);
 
         /* Allocates response->vars list. snmp_free_pdu destroys it at the end of the loop. */
         if (status == STAT_SUCCESS) {
-            DBGPRINT("got success response\n");
+            DBPRT(D_DBG, ("got success response\n"));
             if (response->errstat == SNMP_ERR_NOERROR) {
                 /*
                  * check resulting variables
@@ -446,7 +435,7 @@ PyObject* getbulk_table_sub_entries(table_info_t* table_info, const netsnmp_sess
                 last_var = NULL;
                 int nr_in_response = 0;
                 int nr_columns_ended = 0;
-                DBGPRINT("parse response\n");
+                DBPRT(D_DBG, ("parse response\n"));
                 while (vars) {
                     /* Get the string representation from returned identifier.
                      * Depending on session settings, this may be dotted notation,
@@ -455,17 +444,17 @@ PyObject* getbulk_table_sub_entries(table_info_t* table_info, const netsnmp_sess
                     out_len = 0;
                     sprint_realloc_objid((u_char **) &buf, &buf_len, &out_len,
                             1, vars->name, vars->name_length);
-                    DBGPRINT("varbind = %s\n", buf);
+                    DBPRT(D_DBG, ("varbind = %s\n", buf));
 
                     int vb_col = nr_in_response % column_info->fields;
                     if (is_valid_var(table_info, vars, vb_col) == 1) {
                         /* skip this variable */
                         if (!column_info->column[vb_col].end) {
-                            DBGPRINT("Detected end of column %i\n", vb_col);
+                            DBPRT(D_DBG, ("Detected end of column %i\n", vb_col));
                             column_info->column[vb_col].end = 1;
                             nr_columns_ended++;
                             if (nr_columns_ended == column_info->fields) {
-                                DBGPRINT("Detected end of all columns\n");
+                                DBPRT(D_DBG, ("Detected end of all columns\n"));
                                 running = 0;
                                 break;
                             }
@@ -476,25 +465,25 @@ PyObject* getbulk_table_sub_entries(table_info_t* table_info, const netsnmp_sess
 
                     column = get_column_by_subid(column_info, vars->name[table_info->rootlen]);
                     if (column) {
-                        DBGPRINT("Update latest varbind pointer\n");
+                        DBPRT(D_DBG, ("Update latest varbind pointer\n"));
                         column->last_var = vars;
                     } else {
-                        DBGPRINT("Unexpected column in response\n");
+                        DBPRT(D_DBG, ("Unexpected column in response\n"));
                         running = 0;
                         exitval = FAILURE;
                         break;
                     }
 
-                    DBGPRINT("find row to which this varbind belongs\n");
+                    DBPRT(D_DBG, ("find row to which this varbind belongs\n"));
                     if ((name_p = find_instance_id(buf, table_info->table_name)) == NULL) {
                         /* don't seem to include instance subidentifiers! */
-                        DBGPRINT("don't seem to include instance subidentifiers\n");
+                        DBPRT(D_DBG, ("don't seem to include instance subidentifiers\n"));
                         running = 0;
                         exitval = FAILURE;
                         break;
                     }
 
-                    DBGPRINT("name_p now points to %s in %s\n", name_p, buf);
+                    DBPRT(D_DBG, ("name_p now points to %s in %s\n", name_p, buf));
 
                     /* name_p now points to instance id part of OID */
                     store_value(name_p, column, vars, table_info);
@@ -524,12 +513,12 @@ PyObject* getbulk_table_sub_entries(table_info_t* table_info, const netsnmp_sess
                 exitval = response_err(response);
             }
         } else if (status == STAT_TIMEOUT) {
-            DBGPRINT("Timeout: No Response from %s\n", ss->peername);
+            DBPRT(D_DBG, ("Timeout: No Response from %s\n", ss->peername));
             PyErr_SetString(PyExc_RuntimeError, "snmp_synch_response timed out, no response from agent");
             running = 0;
             exitval = FAILURE;
         } else { /* status == STAT_ERROR */
-            DBGPRINT("got error response\n");
+            DBPRT(D_DBG, ("got error response\n"));
             PyErr_SetString(PyExc_RuntimeError, "snmp_synch_response returned error");
             //snmp_sess_perror("snmptable", ss);
             running = 0;
@@ -543,11 +532,11 @@ PyObject* getbulk_table_sub_entries(table_info_t* table_info, const netsnmp_sess
     netsnmp_ds_set_boolean(NETSNMP_DS_LIBRARY_ID, NETSNMP_DS_LIB_DONT_BREAKDOWN_OIDS, tmp_dont_breakdown_oids);
 
     if (exitval == SUCCESS) {
-        DBGPRINT("Returning successful\n");
+        DBPRT(D_DBG, ("Returning successful\n"));
         return table_info->py_rows_dict;
     }
 
-    DBGPRINT("Returning exceptional\n");
+    DBPRT(D_DBG, ("Returning exceptional\n"));
     Py_DECREF(table_info->py_rows_dict);
     return NULL;
 }
