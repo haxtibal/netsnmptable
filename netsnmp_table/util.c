@@ -134,6 +134,22 @@ int py_netsnmp_attr_oid(PyObject* self, char *attr_name, oid* p_oid, size_t maxl
     return SUCCESS;
 }
 
+PyObject *
+py_netsnmp_construct_varbind(void)
+{
+  PyObject *module;
+  PyObject *dict;
+  PyObject *callable;
+
+  module = PyImport_ImportModule("netsnmp");
+  dict = PyModule_GetDict(module);
+
+  callable = PyDict_GetItemString(dict, "Varbind");
+
+  return PyObject_CallFunction(callable, "");
+}
+
+
 int __sprint_num_objid (buf, objid, len)
 char *buf;
 oid *objid;
@@ -342,6 +358,46 @@ char * str;
            return(FAILURE);
    }
    return SUCCESS;
+}
+
+int
+__translate_asn_type(type)
+int type;
+{
+   switch (type) {
+        case ASN_INTEGER:
+            return(TYPE_INTEGER);
+    case ASN_OCTET_STR:
+            return(TYPE_OCTETSTR);
+    case ASN_OPAQUE:
+            return(TYPE_OPAQUE);
+    case ASN_OBJECT_ID:
+            return(TYPE_OBJID);
+    case ASN_TIMETICKS:
+            return(TYPE_TIMETICKS);
+    case ASN_GAUGE:
+            return(TYPE_GAUGE);
+    case ASN_COUNTER:
+            return(TYPE_COUNTER);
+    case ASN_IPADDRESS:
+            return(TYPE_IPADDR);
+    case ASN_BIT_STR:
+            return(TYPE_BITSTRING);
+    case ASN_NULL:
+            return(TYPE_NULL);
+    /* no translation for these exception type values */
+    case SNMP_ENDOFMIBVIEW:
+    case SNMP_NOSUCHOBJECT:
+    case SNMP_NOSUCHINSTANCE:
+        return(type);
+    case ASN_UINTEGER:
+            return(TYPE_UINTEGER);
+    case ASN_COUNTER64:
+            return(TYPE_COUNTER64);
+    default:
+            fprintf(stderr, "translate_asn_type: unhandled asn type (%d)\n",type);
+            return(TYPE_OTHER);
+        }
 }
 
 int __is_leaf (tp)

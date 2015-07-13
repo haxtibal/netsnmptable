@@ -8,7 +8,7 @@ At the moment, main purpose is evaluation and exercise. The project is far from 
 This project implements SNMP table query functionality for Python using the NetSNMP libraries.
 It is a C extension module similar to the [original Net-SNMP Python Bindings](http://net-snmp.sourceforge.net/wiki/index.php/Python_Bindings).
 
-Table handling is close to netsnmp/apps/snmptable.c, and the python C extension is close to python/netsnmp/client_intf.c.
+Table handling is close to netsnmp/apps/snmptable.c, and the Python C extension is close to python/netsnmp/client_intf.c.
 This shall leave a path for merging it into Net-SNMP.
 
 ## Why? ##
@@ -19,9 +19,9 @@ getbulk or getnext (prior to SNMP v2) request to an agent. This is a rather comp
 Users may be happy with the netsnmp commandline tool called snmptable, which handles the process internally
 and provides a simple output interface where cells are printed in rows and columns as you'd expect it for a table.
 
-There's no python equivalent to snmptable if you program using the Net-SNMP Python Bindings.
+There's no Python equivalent to snmptable if you program using the Net-SNMP Python Bindings.
 So you either have to do something like subprocess.call(["snmptable", ...]),
-or write a table handler using netsnmp.Session.getbulk() in pure python.
+or write a table handler using netsnmp.Session.getbulk() in pure Python.
 But both ways you're technically limited.
 E.g., if using netsnmp.Session.getbulk() you'll miss get_table() in the bindings, so you can't parse a MIB
 and detect the column OIDs.

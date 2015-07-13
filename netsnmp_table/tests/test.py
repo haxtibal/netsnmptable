@@ -32,6 +32,15 @@ class BasicTests(unittest.TestCase):
         tbldict = table.fetch(vb, max_repeaters = 1)
         pprint.pprint(tbldict)
 
+    def test_fetch_print_varbinds(self):
+        vb = netsnmp.Varbind('MYTABLETEST::testTable', 0)
+        table = netsnmp_table.Table(self.netsnmp_session)
+        tbldict = table.fetch(vb)
+        pprint.pprint(tbldict)
+        print("Result at ['First', 'SubFirst']['aValue'] has value %s of type %s" %
+              (tbldict[('First', 'SubFirst')]['aValue'].type,
+               tbldict[('First', 'SubFirst')]['aValue'].val))
+
     def test_host_resources(self):
         vb = netsnmp.Varbind('HOST-RESOURCES-MIB:hrStorageTable', 0)
         table = netsnmp_table.Table(self.netsnmp_session)
