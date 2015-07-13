@@ -11,7 +11,8 @@ build/
 # ignore IDE files
 .cproject
 .project
+.pydevproject
 
 # development sketches
-TODO
-HOWTO*
+dev/
+/Debug

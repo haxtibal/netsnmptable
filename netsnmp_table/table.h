@@ -8,8 +8,8 @@
 /* column specific data - one per column */
 typedef struct column_s {
     oid subid; // The table column ID. Assumes that the innermost index is an integer. How to deal with tables where this is a string index? Can it work at all?
-    char *label;
-
+    //char *label;
+    PyObject* py_label_str;
     // for response PDU tracking
     oid last_oid[MAX_OID_LEN];
     size_t last_oid_len;
@@ -37,6 +37,6 @@ typedef struct t_info_s {
 
 extern int init_table(table_info_t* table_info, char* tablename);
 extern int get_field_names(table_info_t* table_info);
-extern PyObject* getbulk_table_sub_entries(table_info_t* table_info, const netsnmp_session* ss, int max_repeaters);
+extern PyObject* getbulk_table_sub_entries(table_info_t* table_info, netsnmp_session* ss, int max_repeaters);
 
 #endif /* SNMPTABLE_H_ */

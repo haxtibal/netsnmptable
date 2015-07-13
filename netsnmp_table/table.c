@@ -164,8 +164,8 @@ int get_field_names(table_info_t* table_info) {
             column_info->column = (column_t*) realloc(column_info->column,
                     column_info->fields * sizeof(column_t));
         }
-        column_info->column[column_info->fields - 1].label = strdup(name_p);
-        DBPRT(D_DBG, ("column[fields - 1].label = %s\n", column_info->column[column_info->fields - 1].label));
+        column_info->column[column_info->fields - 1].py_label_str = PyString_FromString(name_p);
+        DBPRT(D_DBG, ("column[fields - 1].py_label_str = %s\n", name_p));
         column_info->column[column_info->fields - 1].subid = table_info->root[table_info->rootlen];
     }
     /* end while (going) */
@@ -210,9 +210,9 @@ char is_valid_var(table_info_t* table_info, netsnmp_variable_list *vars, int nr_
         return 1;
     } else if(memcmp(&vars->name[table_info->column_header.name_length+1], table_info->column_header.start_idx, table_info->column_header.start_idx_length * sizeof(oid)) != 0) {
         DBPRT(D_DBG, ("Returned varbinding does not have requested index.\n"));
-        oid* p = &vars->name[table_info->column_header.name_length+1];
-        DBPRTOID(D_DBG, " varbind:    ", p, table_info->column_header.start_idx_length);
-        DBPRTOID(D_DBG, " startindex: ", table_info->column_header.start_idx, table_info->column_header.start_idx_length);
+//        oid* p = &vars->name[table_info->column_header.name_length+1];
+//        DBPRTOID(D_DBG, " varbind:    ", p, table_info->column_header.start_idx_length);
+//        DBPRTOID(D_DBG, " startindex: ", table_info->column_header.start_idx, table_info->column_header.start_idx_length);
         return 1;
     }
     return 0;
@@ -319,10 +319,10 @@ int store_value(char* row_index_str, column_t* column, netsnmp_variable_list *re
         Py_XDECREF(col_dict); // now ref-to-coldict is borrowed from rows_dict
     }
 
-    DBPRT(D_DBG, (" [%s] = %s\n", column->label, buf));
+    DBPRT(D_DBG, (" [%s] = %s\n", PyString_AsString(column->py_label_str), buf));
 
     PyObject* val = PyString_FromString(buf); // create function, we've got ownership of ref-to-val
-    PyDict_SetItemString(col_dict, column->label, val); // PyDict_SetItem() handles INCREF on its own, we can DECREF now
+    PyDict_SetItem(col_dict, column->py_label_str, val); // PyDict_SetItem() handles INCREF on its own, we can DECREF now
     Py_XDECREF(val);
 
     return out_len;
@@ -356,11 +356,11 @@ int response_err(netsnmp_pdu *response)
     return exitval;
 }
 
-PyObject* getbulk_table_sub_entries(table_info_t* table_info, const netsnmp_session* ss, int max_repeaters) {
+PyObject* getbulk_table_sub_entries(table_info_t* table_info, netsnmp_session* ss, int max_repeaters) {
     column_info_t* column_info = &table_info->column_header;
     int running = 1;
     netsnmp_pdu *pdu, *response;
-    netsnmp_variable_list *vars, *last_var;
+    netsnmp_variable_list *vars;
     int status;
     int col;
     char *buf = NULL;
@@ -432,7 +432,6 @@ PyObject* getbulk_table_sub_entries(table_info_t* table_info, const netsnmp_sess
                  * check resulting variables
                  */
                 vars = response->variables;
-                last_var = NULL;
                 int nr_in_response = 0;
                 int nr_columns_ended = 0;
                 DBPRT(D_DBG, ("parse response\n"));
@@ -489,7 +488,6 @@ PyObject* getbulk_table_sub_entries(table_info_t* table_info, const netsnmp_sess
                     store_value(name_p, column, vars, table_info);
                     buf = NULL;
                     buf_len = 0;
-                    last_var = vars;
                     vars = vars->next_variable;
 
                     nr_in_response++;

@@ -13,7 +13,7 @@ extern int _debug_level;
 #define DBPRT(severity, otherargs)                  \
     do {                                \
         if (_debug_level && severity <= _debug_level) {     \
-          (void)printf(otherargs);                  \
+          (void)printf otherargs;                  \
         }                               \
     } while (/*CONSTCOND*/0)
 #define DBPRTOID(severity, oidname, oid, len) \
@@ -40,8 +40,9 @@ extern int py_netsnmp_attr_set_string(PyObject *obj, char *attr_name, char *val,
 extern int py_netsnmp_attr_string(PyObject *obj, char * attr_name, char **val, Py_ssize_t *len);
 extern int py_netsnmp_attr_oid(PyObject* self, char *attr_name, oid* p_oid, size_t maxlen, size_t* len);
 extern int __sprint_num_objid (char* buf, oid* objid, int len);
-extern __snprint_value (char* buf, size_t buf_len, netsnmp_variable_list* var, struct tree* tp, int type, int flag);
+extern int __snprint_value (char* buf, size_t buf_len, netsnmp_variable_list* var, struct tree* tp, int type, int flag);
 extern int __get_type_str (int type, char* str);
 extern int __is_leaf (struct tree* tp);
+PyObject* netsnmp_create_session(PyObject *self, PyObject *args);
 
 #endif /* UTIL_H_ */

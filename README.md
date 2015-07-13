@@ -5,14 +5,15 @@
 At the moment, main purpose is evaluation and exercise. The project is far from being released.
 
 ## What? ##
-This project implements SNMP table query functionality for python on top of the
-[Net-SNMP Python Bindings](http://net-snmp.sourceforge.net/wiki/index.php/Python_Bindings).
-It is a C extension module with full access to the netsnmp C library.
+This project implements SNMP table query functionality for Python using the NetSNMP libraries.
+It is a C extension module similar to the [original Net-SNMP Python Bindings](http://net-snmp.sourceforge.net/wiki/index.php/Python_Bindings).
 
-Table handling is close to netsnmp/apps/snmptable.c, and the python C extension is close to the
-original netsnmp extension. This shall leave a path for merging it into Net-SNMP.
+Table handling is close to netsnmp/apps/snmptable.c, and the python C extension is close to python/netsnmp/client_intf.c.
+This shall leave a path for merging it into Net-SNMP.
 
 ## Why? ##
+In short: Because there's currently no way to do this in Python, while using NetSNMP technology.
+
 If a client wants to fetch SNMP tables efficiently from an agent, this is done by issuing one or several
 getbulk or getnext (prior to SNMP v2) request to an agent. This is a rather complicated process.
 Users may be happy with the netsnmp commandline tool called snmptable, which handles the process internally
@@ -29,7 +30,7 @@ string parsing which may get inefficient and error prone.
 
 ## How? ##
 
-The package interface is only draft. It models a table as dictinory of dictionaries.
+The package interface is only draft. It models a table as dictionary of dictionaries.
 
 ```python
 import netsnmp

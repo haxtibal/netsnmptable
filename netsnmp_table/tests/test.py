@@ -32,5 +32,11 @@ class BasicTests(unittest.TestCase):
         tbldict = table.fetch(vb, max_repeaters = 1)
         pprint.pprint(tbldict)
 
+    def test_host_resources(self):
+        vb = netsnmp.Varbind('HOST-RESOURCES-MIB:hrStorageTable', 0)
+        table = netsnmp_table.Table(self.netsnmp_session)
+        tbldict = table.fetch(vb)
+        pprint.pprint(tbldict)
+
 if __name__=='__main__':
     unittest.main()

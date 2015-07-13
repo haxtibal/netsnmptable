@@ -10,7 +10,8 @@ PyObject * netsnmp_table(PyObject *self, PyObject *args)
   PyObject *session;
   PyObject *varbind;
   PyObject *val_tuple = NULL;
-  netsnmp_session *ss;
+  void* ss_opaque = NULL;
+  netsnmp_session *ss = NULL;
   long max_repeaters;
   char *tag;
   char *iid;
@@ -30,11 +31,22 @@ PyObject * netsnmp_table(PyObject *self, PyObject *args)
     }
 
     /* get netsnmp session pointer from python Session instance */
-    ss = (SnmpSession *)py_netsnmp_attr_long(session, "sess_ptr");
-    if (!ss) {
+    ss_opaque = (void*) py_netsnmp_attr_long(session, "sess_ptr");
+    if (!ss_opaque) {
         PyErr_SetString(PyExc_RuntimeError, "invalid netsnmp session pointer");
         goto done;
     }
+
+    /* NetSNMP in 5.4.x used to open session with ss = snmp_open(&session) for SNMPv1/v2,
+     * but they changed to ss = snmp_sess_open(&session) with 5.5.
+     * TODO: We probably have no chance to detect which API call was used to get the session pointer,
+     * and have to introduce our own session.
+     */
+#ifdef NETSNMP_SINGLE_API
+    ss = snmp_sess_session(ss_opaque);
+#else
+    ss = (netsnmp_session*) ss_opaque;
+#endif
 
     max_repeaters = py_netsnmp_attr_long(self, "max_repeaters");
     if (max_repeaters < 0) {
