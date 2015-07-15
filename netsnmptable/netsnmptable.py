@@ -55,14 +55,14 @@ class Table(object):
 
 def str_to_varlen_iid(index_str):
     """Encodes a string to an variable-length string index iid.
-    Example: str_to_vlen_iid("dave") gives  [4, ord('d'), ord('a'), ord('v'), ord('e')]
+    Example: str_to_vlen_iid("dave") gives [4, ord('d'), ord('a'), ord('v'), ord('e')]
     Returns: List of integers
     """
     return [len(index_str)] + [ord(element) for element in list(index_str)]
 
 def str_to_fixlen_iid(index_str):
     """Encodes a string to an fixed-length string index iid.
-    Example: str_to_vlen_iid("dave") gives  [ord('d'), ord('a'), ord('v'), ord('e')]
+    Example: str_to_vlen_iid("dave") gives [ord('d'), ord('a'), ord('v'), ord('e')]
     Returns: List of integers
     """
     return + [ord(element) for element in list(index_str)]

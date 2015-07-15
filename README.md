@@ -30,7 +30,53 @@ string parsing which may get inefficient and error prone.
 
 ## How? ##
 
-The package interface is only draft. It models a table as dictionary of dictionaries.
+Here are some examples how to use netsnmptable.
+
+### Example 1: Print out the Host Resources Storage Table###
+```python
+import netsnmp
+import netsnmptable
+
+table = netsnmptable.Table(netsnmp.Session(Version=2,
+            DestHost='localhost',
+            Community='public'))
+
+table.parse_mib(netsnmp.Varbind('HOST-RESOURCES-MIB:hrStorageTable', 0))
+
+table = netsnmptable.Table(self.netsnmp_session)
+table.parse_mib(netsnmp.Varbind('HOST-RESOURCES-MIB:hrStorageTable', 0))
+tbldict = table.fetch()
+if (self.netsnmp_session.ErrorNum):
+    print("Can't query HOST-RESOURCES-MIB:hrStorageTable.")
+    exit(-1)
+
+print("{:10s} {:25s} {:10s} {:10s} {:10s}".format("Index", "Description", "Units", "Size", "Used"))
+for row_key in tbldict:
+    row = tbldict[row_key]
+    cell_list = [element.val if element else "" for element in
+                 [row.get('hrStorageIndex'), row.get('hrStorageDescr'),
+                  row.get('hrStorageAllocationUnits'), row.get('hrStorageSize'),
+                  row.get('hrStorageUsed')]]
+    print("{:10s} {:25s} {:10s} {:10s} {:10s}".format(*cell_list))
+```
+
+Results in
+```
+Index      Description               Units      Size       Used      
+32         /                         4096       10063200   2494643   
+33         /sys/fs/fuse/connections  4096       0          0         
+1          Physical memory           1024       2054128    686944    
+34         /run/vmblock-fuse         512        0          0         
+8          Shared memory             1024       0                    
+3          Virtual memory            1024       3099628    686944    
+31         /dev                      4096       2560       0         
+10         Swap space                1024       1045500    0         
+6          Memory buffers            1024       2054128    75828     
+7          Cached memory             1024       332196     332196   
+```
+
+### Example 2: Query a multi-indexed table ###
+(outdated) Tables with more than one index are no problem. The row key tuple just gets more elements.
 
 ```python
 import netsnmp
@@ -52,7 +98,9 @@ Results in
  ('Second', 'SubSecond'): {'aValue': '4', 'anotherValue': '4'}}
 ```
 
-Additionally, you can limit the query to certain sub index...
+### Example 3: Query a multi-indexed table with only selected index values ###
+(outdated) You can limit the query to certain sub index:
+
 ```python
 table.set_start_index(("First",))
 tbldict = table.get(vb)
