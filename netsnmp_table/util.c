@@ -33,8 +33,6 @@ typedef int Py_ssize_t;
 #define VARBIND_TYPE_F 3
 
 #define TYPE_UNKNOWN 0
-#define MAX_TYPE_NAME_LEN 32
-#define STR_BUF_SIZE (MAX_TYPE_NAME_LEN * MAX_OID_LEN)
 #define ENG_ID_BUF_SIZE 32
 
 #define NO_RETRY_NOSUCH 0
@@ -164,9 +162,6 @@ int len;
    return SUCCESS;
 }
 
-#define USE_BASIC 0
-#define USE_ENUMS 1
-#define USE_SPRINT_VALUE 2
 int __snprint_value (buf, buf_len, var, tp, type, flag)
 char * buf;
 size_t buf_len;
@@ -406,4 +401,143 @@ struct tree* tp;
    char buf[MAX_TYPE_NAME_LEN];
    return (tp && (__get_type_str(tp->type,buf) ||
           (tp->parent && __get_type_str(tp->parent->type,buf) )));
+}
+
+/* takes ss and pdu as input and updates the 'response' argument */
+/* the input 'pdu' argument will be freed */
+int
+__send_sync_pdu(netsnmp_session *ss, netsnmp_pdu *pdu, netsnmp_pdu **response,
+                int retry_nosuch, char *err_str, int *err_num, int *err_ind)
+{
+   int status = 0;
+   long command = pdu->command;
+   char *tmp_err_str;
+
+   *err_num = 0;
+   *err_ind = 0;
+   *response = NULL;
+   tmp_err_str = NULL;
+   memset(err_str, '\0', STR_BUF_SIZE);
+   if (ss == NULL) {
+       *err_num = 0;
+       *err_ind = SNMPERR_BAD_SESSION;
+       status = SNMPERR_BAD_SESSION;
+       strlcpy(err_str, snmp_api_errstring(*err_ind), STR_BUF_SIZE);
+       goto done;
+   }
+retry:
+
+   Py_BEGIN_ALLOW_THREADS
+#ifdef NETSNMP_SINGLE_API
+   status = snmp_sess_synch_response(ss, pdu, response);
+#else
+   status = snmp_synch_response(ss, pdu, response);
+#endif
+   Py_END_ALLOW_THREADS
+
+   if ((*response == NULL) && (status == STAT_SUCCESS)) status = STAT_ERROR;
+
+   switch (status) {
+      case STAT_SUCCESS:
+     switch ((*response)->errstat) {
+        case SNMP_ERR_NOERROR:
+           break;
+
+            case SNMP_ERR_NOSUCHNAME:
+               if (retry_nosuch && (pdu = snmp_fix_pdu(*response, command))) {
+                  if (*response) snmp_free_pdu(*response);
+                  goto retry;
+               }
+
+            /* Pv1, SNMPsec, Pv2p, v2c, v2u, v2*, and SNMPv3 PDUs */
+            case SNMP_ERR_TOOBIG:
+            case SNMP_ERR_BADVALUE:
+            case SNMP_ERR_READONLY:
+            case SNMP_ERR_GENERR:
+            /* in SNMPv2p, SNMPv2c, SNMPv2u, SNMPv2*, and SNMPv3 PDUs */
+            case SNMP_ERR_NOACCESS:
+            case SNMP_ERR_WRONGTYPE:
+            case SNMP_ERR_WRONGLENGTH:
+            case SNMP_ERR_WRONGENCODING:
+            case SNMP_ERR_WRONGVALUE:
+            case SNMP_ERR_NOCREATION:
+            case SNMP_ERR_INCONSISTENTVALUE:
+            case SNMP_ERR_RESOURCEUNAVAILABLE:
+            case SNMP_ERR_COMMITFAILED:
+            case SNMP_ERR_UNDOFAILED:
+            case SNMP_ERR_AUTHORIZATIONERROR:
+            case SNMP_ERR_NOTWRITABLE:
+            /* in SNMPv2c, SNMPv2u, SNMPv2*, and SNMPv3 PDUs */
+            case SNMP_ERR_INCONSISTENTNAME:
+            default:
+               strlcpy(err_str, (char*)snmp_errstring((*response)->errstat),
+               STR_BUF_SIZE);
+               *err_num = (int)(*response)->errstat;
+           *err_ind = (*response)->errindex;
+               status = (*response)->errstat;
+               break;
+     }
+         break;
+
+      case STAT_TIMEOUT:
+      case STAT_ERROR:
+      snmp_sess_error(ss, err_num, err_ind, &tmp_err_str);
+      strlcpy(err_str, tmp_err_str, STR_BUF_SIZE);
+         break;
+
+      default:
+         strcat(err_str, "send_sync_pdu: unknown status");
+         *err_num = ss->s_snmp_errno;
+         break;
+   }
+done:
+   if (tmp_err_str) {
+    free(tmp_err_str);
+   }
+   if (_debug_level && *err_num) printf("XXX sync PDU: %s\n", err_str);
+   return(status);
+}
+
+/**
+ * Update python session object error attributes.
+ *
+ * Copy the error info which may have been returned from __send_sync_pdu(...)
+ * into the python object. This will allow the python code to determine if
+ * an error occured during an snmp operation.
+ *
+ * Currently there are 3 attributes we care about
+ *
+ * ErrorNum - Copy of the value of netsnmp_session.s_errno. This is the system
+ * errno that was generated during our last call into the net-snmp library.
+ *
+ * ErrorInd - Copy of the value of netsmp_session.s_snmp_errno. These error
+ * numbers are separate from the system errno's and describe SNMP errors.
+ *
+ * ErrorStr - A string describing the ErrorInd that was returned during our last
+ * operation.
+ *
+ * @param[in] session The python object that represents our current Session
+ * @param[in|out] err_str A string describing err_ind
+ * @param[in|out] err_num The system errno currently stored by our session
+ * @param[in|out] err_ind The snmp errno currently stored by our session
+ */
+void
+__py_netsnmp_update_session_errors(PyObject *session, char *err_str,
+                                    int err_num, int err_ind)
+{
+    PyObject *tmp_for_conversion;
+
+    py_netsnmp_attr_set_string(session, "ErrorStr", err_str, STRLEN(err_str));
+
+    tmp_for_conversion = PyInt_FromLong(err_num);
+    if (!tmp_for_conversion)
+        return; /* nothing better to do? */
+    PyObject_SetAttrString(session, "ErrorNum", tmp_for_conversion);
+    Py_DECREF(tmp_for_conversion);
+
+    tmp_for_conversion = PyInt_FromLong(err_ind);
+    if (!tmp_for_conversion)
+        return; /* nothing better to do? */
+    PyObject_SetAttrString(session, "ErrorInd", tmp_for_conversion);
+    Py_DECREF(tmp_for_conversion);
 }

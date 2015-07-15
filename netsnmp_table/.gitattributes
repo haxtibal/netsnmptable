@@ -1,0 +1,3 @@
+# prevent LF -> CRLF conversion in windows
+*.c -crlf
+*.py -crlf

@@ -23,9 +23,11 @@ class Table(object):
                            Adjust this to the number of expected rows to make the query more efficient.
 
         Returns:
-            Dicitionary of dictionaires.
+            On success, a dictionary of dictionaries is returned.
             Outer dictionary takes a tuple of row indexes as key.
             Inner dictionary takes the conceptual column name as key.
+            On error, None is returned, and related netsnmp.Session attributes
+            ErrorStr, ErrorNum and ErrorInd are updated.
 
         """
         if (row_index):

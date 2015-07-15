@@ -34,6 +34,13 @@ extern int _debug_level;
 #define D_WARN 2
 #define D_DBG  3
 
+#define STR_BUF_SIZE (MAX_TYPE_NAME_LEN * MAX_OID_LEN)
+#define MAX_TYPE_NAME_LEN 32
+
+#define USE_BASIC 0
+#define USE_ENUMS 1
+#define USE_SPRINT_VALUE 2
+
 extern PyObject* py_netsnmp_attr_obj(PyObject *obj, char * attr_name);
 extern long long py_netsnmp_attr_long(PyObject *obj, char * attr_name);
 extern int py_netsnmp_attr_set_string(PyObject *obj, char *attr_name, char *val, size_t len);
@@ -45,6 +52,7 @@ extern int __snprint_value (char* buf, size_t buf_len, netsnmp_variable_list* va
 extern int __get_type_str (int type, char* str);
 extern int __translate_asn_type(int type);
 extern int __is_leaf (struct tree* tp);
-PyObject* netsnmp_create_session(PyObject *self, PyObject *args);
+extern int __send_sync_pdu(netsnmp_session *ss, netsnmp_pdu *pdu, netsnmp_pdu **response, int retry_nosuch, char *err_str, int *err_num, int *err_ind);
+extern void __py_netsnmp_update_session_errors(PyObject *session, char *err_str, int err_num, int err_ind);
 
 #endif /* UTIL_H_ */

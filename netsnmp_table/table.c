@@ -23,6 +23,9 @@ SOFTWARE.
 #define SUCCESS (0)
 #define FAILURE (-1)
 
+#define NO_FLAGS 0x00
+#define NON_LEAF_NAME 0x04
+
 int init_table(table_info_t* table_info, char* tablename) {
     memset(table_info->root, 0, sizeof(table_info->root));
     memset(table_info->column_header.name, 0, sizeof(table_info->column_header.name));
@@ -44,7 +47,8 @@ int init_table(table_info_t* table_info, char* tablename) {
     table_info->column_header.name_length = 0;
     table_info->column_header.start_idx_length = 0;
 
-    table_info->py_rows_dict = PyDict_New(); // create function, we've got ownership of ref-to-rows_dict
+    /* create function, transfers reference ownership */
+    table_info->py_rows_dict = PyDict_New();
 
     return SUCCESS;
 }
@@ -363,12 +367,6 @@ int response_err(netsnmp_pdu *response)
  */
 PyObject* create_varbind(netsnmp_variable_list *vars, struct tree *tp, u_char* buf, size_t buf_len)
 {
-#define USE_BASIC 0
-#define NO_FLAGS 0x00
-#define NON_LEAF_NAME 0x04
-#define MAX_TYPE_NAME_LEN 32
-#define STR_BUF_SIZE (MAX_TYPE_NAME_LEN * MAX_OID_LEN)
-
     int type;
     int getlabel_flag = NO_FLAGS;
     char type_str[MAX_TYPE_NAME_LEN];
@@ -407,8 +405,7 @@ PyObject* create_varbind(netsnmp_variable_list *vars, struct tree *tp, u_char* b
     return varbind;
 }
 
-PyObject* getbulk_table_sub_entries(table_info_t* table_info, netsnmp_session* ss, int max_repeaters) {
-#define STR_BUF_SIZE (MAX_TYPE_NAME_LEN * MAX_OID_LEN)
+PyObject* getbulk_table_sub_entries(table_info_t* table_info, netsnmp_session* ss, int max_repeaters, PyObject *session) {
     column_info_t* column_info = &table_info->column_header;
     int running = 1;
     netsnmp_pdu *pdu, *response;
@@ -480,7 +477,13 @@ PyObject* getbulk_table_sub_entries(table_info_t* table_info, netsnmp_session* s
          */
         DBPRT(D_DBG, ("do getbulk request\n"));
         DBPRT(D_DBG, ("session - version %lu, community %s\n", ss->version, ss->community));
-        status = snmp_synch_response(ss, pdu, &response);
+
+        int retry_nosuch = 0; // = py_netsnmp_attr_long(session, "RetryNoSuch");
+        char err_str[STR_BUF_SIZE];
+        int err_num;
+        int err_ind;
+        status = __send_sync_pdu(ss, pdu, &response, retry_nosuch, err_str, &err_num, &err_ind);
+        __py_netsnmp_update_session_errors(session, err_str, err_num, err_ind);
 
         /* Allocates response->vars list. snmp_free_pdu destroys it at the end of the loop. */
         if (status == STAT_SUCCESS) {

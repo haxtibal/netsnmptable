@@ -10,11 +10,12 @@ PyObject * netsnmp_table(PyObject *self, PyObject *args)
   PyObject *session;
   PyObject *varbind;
   PyObject *val_tuple = NULL;
-  void* ss_opaque = NULL;
+  long ss_opaque = 0;
   netsnmp_session *ss = NULL;
   long max_repeaters;
   char *tag;
   char *iid;
+  int ret_exceptional = 0;
 
   table_info_t tbl;
 
@@ -27,13 +28,16 @@ PyObject * netsnmp_table(PyObject *self, PyObject *args)
 
     session = py_netsnmp_attr_obj(self, "netsnmp_session");
     if (!session) {
+        PyErr_SetString(PyExc_RuntimeError, "Table object has no netsnmp_session attribute");
+        ret_exceptional = 1;
         goto done;
     }
 
     /* get netsnmp session pointer from python Session instance */
-    ss_opaque = (void*) py_netsnmp_attr_long(session, "sess_ptr");
-    if (!ss_opaque) {
-        PyErr_SetString(PyExc_RuntimeError, "invalid netsnmp session pointer");
+    ss_opaque = py_netsnmp_attr_long(session, "sess_ptr");
+    if (ss_opaque < 0) {
+        PyErr_SetString(PyExc_RuntimeError, "Session object has no sess_ptr attribute");
+        ret_exceptional = 1;
         goto done;
     }
 
@@ -43,14 +47,15 @@ PyObject * netsnmp_table(PyObject *self, PyObject *args)
      * and have to introduce our own session.
      */
 #ifdef NETSNMP_SINGLE_API
-    ss = snmp_sess_session(ss_opaque);
+    ss = snmp_sess_session((void*)ss_opaque);
 #else
     ss = (netsnmp_session*) ss_opaque;
 #endif
 
     max_repeaters = py_netsnmp_attr_long(self, "max_repeaters");
     if (max_repeaters < 0) {
-        PyErr_SetString(PyExc_RuntimeError, "bad max_repeaters attribute");
+        PyErr_SetString(PyExc_RuntimeError, "Table object has no max_repeaters attribute");
+        ret_exceptional = 1;
         goto done;
     }
 
@@ -69,13 +74,16 @@ PyObject * netsnmp_table(PyObject *self, PyObject *args)
 
             if (get_field_names(&tbl) < 0)
                 goto done;
-            val_tuple = getbulk_table_sub_entries(&tbl, ss, max_repeaters);
+            val_tuple = getbulk_table_sub_entries(&tbl, ss, max_repeaters, session);
         }
     }
   }
 
   done:
-   return (val_tuple ? val_tuple : NULL);
+    if (ret_exceptional)
+        return NULL;
+
+    return (val_tuple ? val_tuple : Py_BuildValue(""));
 }
 
 static PyMethodDef ClientMethods[] = {
