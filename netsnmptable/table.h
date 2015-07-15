@@ -16,7 +16,7 @@ typedef struct column_s {
     char end;
 } column_t;
 
-/* column general data - one per table request */
+/* column general data - one per table */
 typedef struct column_info_s {
     oid name[MAX_OID_LEN];
     size_t name_length;
@@ -31,11 +31,11 @@ typedef struct t_info_s {
     size_t rootlen;
     column_info_t column_header;
     char *table_name;
-    PyObject* py_rows_dict; // Contains 1 key-value pair per row, where value is in turn another dictionary.
 } table_info_t;
 
-extern int init_table(table_info_t* table_info, char* tablename);
-extern int get_field_names(table_info_t* table_info);
-extern PyObject* getbulk_table_sub_entries(table_info_t* table_info, netsnmp_session* ss, int max_repeaters, PyObject *session);
+extern table_info_t* table_allocate(char* tablename);
+extern void table_deallocate(table_info_t* table);
+extern int table_get_field_names(table_info_t* table_info);
+extern PyObject* table_getbulk_sub_entries(table_info_t* table_info, netsnmp_session* ss, int max_repeaters, PyObject *session);
 
 #endif /* SNMPTABLE_H_ */

@@ -22,35 +22,50 @@ SOFTWARE.
 
 #define SUCCESS (0)
 #define FAILURE (-1)
+#define FAILURE_EXCEPTIONAL (-2)
 
 #define NO_FLAGS 0x00
 #define NON_LEAF_NAME 0x04
 
-int init_table(table_info_t* table_info, char* tablename) {
-    memset(table_info->root, 0, sizeof(table_info->root));
-    memset(table_info->column_header.name, 0, sizeof(table_info->column_header.name));
-    memset(table_info->column_header.start_idx, 0, sizeof(table_info->column_header.start_idx_length));
+table_info_t* table_allocate(char* tablename)
+{
+    table_info_t* table_info;
+
+    table_info = calloc(1, sizeof(table_info_t));
+    if (!table_info)
+        return NULL;
 
     table_info->rootlen = MAX_OID_LEN;
 
     if (!snmp_parse_oid(tablename, table_info->root, &table_info->rootlen)) {
         PyErr_SetString(PyExc_RuntimeError, "snmp_parse_oid failed to lookup table in MIB.");
         //original was: snmp_perror(argv[optind]);
-        return FAILURE;
+        return NULL;
     }
 
     table_info->table_name = NULL;
-    table_info->py_rows_dict = NULL;
 
     table_info->column_header.column = NULL;
     table_info->column_header.fields = 0;
     table_info->column_header.name_length = 0;
     table_info->column_header.start_idx_length = 0;
 
-    /* create function, transfers reference ownership */
-    table_info->py_rows_dict = PyDict_New();
+    return table_info;
+}
 
-    return SUCCESS;
+void table_deallocate(table_info_t* table)
+{
+    int col;
+
+    if (table) {
+        if (table->column_header.column) {
+            for (col=0; col<table->column_header.fields; col++) {
+                Py_DECREF(table->column_header.column[col].py_label_str);
+            }
+            free(table->column_header.column);
+        }
+        free(table);
+    }
 }
 
 void reverse_fields(column_info_t* column_info) {
@@ -67,7 +82,7 @@ void reverse_fields(column_info_t* column_info) {
 /*
  * Table Syntax for SMIv2 is specified RFC 2578, 7.1.12. Conceptual Tables (https://tools.ietf.org/html/rfc2578#page-25).
  */
-int get_field_names(table_info_t* table_info) {
+int table_get_field_names(table_info_t* table_info) {
     column_info_t* column_info = &table_info->column_header;
     char *buf = NULL, *name_p = NULL;
     size_t buf_len = 0, out_len = 0;
@@ -277,7 +292,7 @@ column_t* get_column_by_subid(column_info_t* columns, int subid)
     return NULL;
 }
 
-int store_varbind(char* row_index_str, column_t* column, netsnmp_variable_list *result_varbind, table_info_t* table, PyObject* py_varbind) {
+int store_varbind(PyObject* py_table_dict, PyObject* py_varbind, char* row_index_str, column_t* column, netsnmp_variable_list *result_varbind, table_info_t* table) {
     PyObject* py_col_dict = NULL;
     char *buf = NULL;
     char *instance_id = NULL;
@@ -316,12 +331,12 @@ int store_varbind(char* row_index_str, column_t* column, netsnmp_variable_list *
     }
 
     // do we start a new row?
-    py_col_dict = PyDict_GetItem(table->py_rows_dict, py_instance_tuple); // PyDict_GetItem() only borrows us ref-to-col_dict
+    py_col_dict = PyDict_GetItem(py_table_dict, py_instance_tuple); // PyDict_GetItem() only borrows us ref-to-col_dict
     if (!py_col_dict)
     {
         DBPRT(D_DBG, ("Creating new column dict\n"));
         py_col_dict = PyDict_New(); // create function, we've got ownership of ref-to-col_dict
-        PyDict_SetItem(table->py_rows_dict, py_instance_tuple, py_col_dict); // PyDict_SetItem() handles INCREF on its own
+        PyDict_SetItem(py_table_dict, py_instance_tuple, py_col_dict); // PyDict_SetItem() handles INCREF on its own
         Py_XDECREF(py_col_dict); // now ref-to-coldict is borrowed from rows_dict
     }
 
@@ -405,7 +420,7 @@ PyObject* create_varbind(netsnmp_variable_list *vars, struct tree *tp, u_char* b
     return varbind;
 }
 
-PyObject* getbulk_table_sub_entries(table_info_t* table_info, netsnmp_session* ss, int max_repeaters, PyObject *session) {
+PyObject* table_getbulk_sub_entries(table_info_t* table_info, netsnmp_session* ss, int max_repeaters, PyObject *session) {
     column_info_t* column_info = &table_info->column_header;
     int running = 1;
     netsnmp_pdu *pdu, *response;
@@ -416,14 +431,16 @@ PyObject* getbulk_table_sub_entries(table_info_t* table_info, netsnmp_session* s
     int col;
     u_char *buf = NULL;
     size_t buf_len = 0;
-    //char *buf = NULL;
     size_t out_len;
     char *name_p = NULL;
     int exitval = SUCCESS;
     column_t* column;
     int tmp_dont_breakdown_oids;
-    PyObject* py_varbind;
+    PyObject* py_table_dict = NULL;
+    PyObject* py_varbind = NULL;
 
+    /* Create function, transfers reference ownership. */
+    py_table_dict = PyDict_New();
 
     /* Get table string index as string, not as dotted numbers. 1 = dont print oid indexes specially, 0 = print oid indexes specially. */
     tmp_dont_breakdown_oids = netsnmp_ds_get_boolean(NETSNMP_DS_LIBRARY_ID, NETSNMP_DS_LIB_DONT_BREAKDOWN_OIDS);
@@ -550,7 +567,7 @@ PyObject* getbulk_table_sub_entries(table_info_t* table_info, netsnmp_session* s
 
                     /* name_p now points to instance id part of OID */
                     py_varbind = create_varbind(vars, tp, buf, buf_len);
-                    store_varbind(name_p, column, vars, table_info, py_varbind);
+                    store_varbind(py_table_dict, py_varbind, name_p, column, vars, table_info);
                     Py_DECREF(py_varbind);
 
                     buf = NULL;
@@ -579,13 +596,10 @@ PyObject* getbulk_table_sub_entries(table_info_t* table_info, netsnmp_session* s
             }
         } else if (status == STAT_TIMEOUT) {
             DBPRT(D_DBG, ("Timeout: No Response from %s\n", ss->peername));
-            PyErr_SetString(PyExc_RuntimeError, "snmp_synch_response timed out, no response from agent");
             running = 0;
             exitval = FAILURE;
         } else { /* status == STAT_ERROR */
             DBPRT(D_DBG, ("got error response\n"));
-            PyErr_SetString(PyExc_RuntimeError, "snmp_synch_response returned error");
-            //snmp_sess_perror("snmptable", ss);
             running = 0;
             exitval = FAILURE;
         }
@@ -599,12 +613,12 @@ PyObject* getbulk_table_sub_entries(table_info_t* table_info, netsnmp_session* s
 
     netsnmp_ds_set_boolean(NETSNMP_DS_LIBRARY_ID, NETSNMP_DS_LIB_DONT_BREAKDOWN_OIDS, tmp_dont_breakdown_oids);
 
-    if (exitval == SUCCESS) {
-        DBPRT(D_DBG, ("Returning successful\n"));
-        return table_info->py_rows_dict;
+    if (exitval == SUCCESS || exitval == FAILURE) {
+        DBPRT(D_DBG, ("Returning normal.\n"));
+        return py_table_dict;
     }
 
-    DBPRT(D_DBG, ("Returning exceptional\n"));
-    Py_DECREF(table_info->py_rows_dict);
+    DBPRT(D_DBG, ("Returning exceptional.\n"));
+    Py_DECREF(py_table_dict);
     return NULL;
 }

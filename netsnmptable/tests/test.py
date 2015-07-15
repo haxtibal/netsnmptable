@@ -14,10 +14,15 @@ class BasicTests(unittest.TestCase):
             DestHost='localhost',
             Community='public')
 
-    def test_fetch(self):
-        vb = netsnmp.Varbind('MYTABLETEST::testTable', 0)
+    def test_parse_mib(self):
         table = netsnmptable.Table(self.netsnmp_session)
-        tbldict = table.fetch(vb)
+        table.parse_mib(netsnmp.Varbind('MYTABLETEST::testTable', 0))
+        pprint.pprint(table.columns)
+
+    def test_fetch(self):
+        table = netsnmptable.Table(self.netsnmp_session)
+        table.parse_mib(netsnmp.Varbind('MYTABLETEST::testTable', 0))
+        tbldict = table.fetch()
         self.assertEqual(self.netsnmp_session.ErrorStr, "", msg="Error during SNMP request: %s" % self.netsnmp_session.ErrorStr)
         self.assertEqual(self.netsnmp_session.ErrorNum, 0)
         self.assertEqual(self.netsnmp_session.ErrorInd, 0)
@@ -25,9 +30,9 @@ class BasicTests(unittest.TestCase):
         pprint.pprint(tbldict)
 
     def test_fetch_with_row_idx(self):
-        vb = netsnmp.Varbind('MYTABLETEST::testTable', 0)
         table = netsnmptable.Table(self.netsnmp_session)
-        tbldict = table.fetch(vb, row_index = ("First",))
+        table.parse_mib(netsnmp.Varbind('MYTABLETEST::testTable', 0))
+        tbldict = table.fetch(row_index = ("First",))
         self.assertEqual(self.netsnmp_session.ErrorStr, "", msg="Error during SNMP request: %s" % self.netsnmp_session.ErrorStr)
         self.assertEqual(self.netsnmp_session.ErrorNum, 0)
         self.assertEqual(self.netsnmp_session.ErrorInd, 0)
@@ -35,9 +40,10 @@ class BasicTests(unittest.TestCase):
         pprint.pprint(tbldict)
 
     def test_multiple_getbulk(self):
-        vb = netsnmp.Varbind('MYTABLETEST::testTable', 0)
+        """This test forces multiple getbulks by setting max_repeaters to 1"""
         table = netsnmptable.Table(self.netsnmp_session)
-        tbldict = table.fetch(vb, max_repeaters = 1)
+        table.parse_mib(netsnmp.Varbind('MYTABLETEST::testTable', 0))
+        tbldict = table.fetch(max_repeaters = 1)
         self.assertEqual(self.netsnmp_session.ErrorStr, "", msg="Error during SNMP request: %s" % self.netsnmp_session.ErrorStr)
         self.assertEqual(self.netsnmp_session.ErrorNum, 0)
         self.assertEqual(self.netsnmp_session.ErrorInd, 0)
@@ -45,9 +51,9 @@ class BasicTests(unittest.TestCase):
         pprint.pprint(tbldict)
 
     def test_fetch_print_varbinds(self):
-        vb = netsnmp.Varbind('MYTABLETEST::testTable', 0)
         table = netsnmptable.Table(self.netsnmp_session)
-        tbldict = table.fetch(vb)
+        table.parse_mib(netsnmp.Varbind('MYTABLETEST::testTable', 0))
+        tbldict = table.fetch()
         self.assertEqual(self.netsnmp_session.ErrorStr, "", msg="Error during SNMP request: %s" % self.netsnmp_session.ErrorStr)
         self.assertEqual(self.netsnmp_session.ErrorNum, 0)
         self.assertEqual(self.netsnmp_session.ErrorInd, 0)
@@ -58,9 +64,9 @@ class BasicTests(unittest.TestCase):
                tbldict[('First', 'SubFirst')]['aValue'].val))
 
     def test_host_resources(self):
-        vb = netsnmp.Varbind('HOST-RESOURCES-MIB:hrStorageTable', 0)
         table = netsnmptable.Table(self.netsnmp_session)
-        tbldict = table.fetch(vb)
+        table.parse_mib(netsnmp.Varbind('HOST-RESOURCES-MIB:hrStorageTable', 0))
+        tbldict = table.fetch()
         self.assertEqual(self.netsnmp_session.ErrorStr, "", msg="Error during SNMP request: %s" % self.netsnmp_session.ErrorStr)
         self.assertEqual(self.netsnmp_session.ErrorNum, 0)
         self.assertEqual(self.netsnmp_session.ErrorInd, 0)

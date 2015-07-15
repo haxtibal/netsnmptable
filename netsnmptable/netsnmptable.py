@@ -3,11 +3,24 @@ import interface
 
 class Table(object):
     def __init__(self, session):
-        self.netsnmp_session = session
         self.max_repeaters = 10
         self.start_index_oid = []
+        self.indexes = []
+        self.columns = []
+        self.netsnmp_session = session
+        self._tbl_ptr = None
 
-    def fetch(self, varbind, row_index=None, max_repeaters = 10):
+    def parse_mib(self, varbind):
+        """Determine the table structure by parsing the MIB.
+        After a successful run, table headers are available in indexes and columns dictionary.
+        """
+        tbl_ptr = interface.table_parse_mib(varbind, self.indexes, self.columns)
+        if (tbl_ptr):
+            if self._tbl_ptr:
+                interface.table_cleanup()
+            self._tbl_ptr = tbl_ptr
+
+    def fetch(self, row_index=None, max_repeaters = 10):
         """Fetch a SNMP table, or parts of a table.
 
         All information required to query a table is taken from MIB.
@@ -33,7 +46,7 @@ class Table(object):
         if (row_index):
             self._set_start_index(row_index)
         self.max_repeaters = max_repeaters
-        res = interface.table(self, varbind)
+        res = interface.table_fetch(self)
         return res
 
     def _set_start_index(self, index_seq):
@@ -51,3 +64,6 @@ class Table(object):
                 return
         self.start_index_oid = oid
 
+    def _del_(self):
+        print("destructing...")
+        interface.table_cleanup(self)

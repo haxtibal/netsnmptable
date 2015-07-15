@@ -7,6 +7,6 @@
 #include <net-snmp/net-snmp-config.h>
 #include <net-snmp/net-snmp-includes.h>
 
-extern PyObject * netsnmptable(PyObject *self, PyObject *args);
+extern PyObject * netsnmptable_fetch(PyObject *self, PyObject *args);
 
 #endif
