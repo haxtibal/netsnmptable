@@ -59,7 +59,7 @@ PyObject* netsnmptable_cleanup(PyObject *self, PyObject *args)
 {
     table_info_t* tbl = NULL;
     if (args) {
-      if (!PyArg_ParseTuple(args, "O", &tbl)) {
+      if (!PyArg_ParseTuple(args, "l", &tbl)) {
         goto done;
       }
     }
@@ -75,6 +75,7 @@ PyObject* netsnmptable_fetch(PyObject *self, PyObject *args)
   PyObject* table = NULL;
   PyObject* session = NULL;
   PyObject* val_tuple = NULL;
+  PyObject* iid = NULL;
   table_info_t* tbl = NULL;
   long ss_opaque = 0;
   netsnmp_session *ss = NULL;
@@ -82,7 +83,7 @@ PyObject* netsnmptable_fetch(PyObject *self, PyObject *args)
   int ret_exceptional = 0;
 
   if (args) {
-    if (!PyArg_ParseTuple(args, "O", &table)) {
+    if (!PyArg_ParseTuple(args, "OO", &table, &iid)) {
       goto done;
     }
 
@@ -127,8 +128,9 @@ PyObject* netsnmptable_fetch(PyObject *self, PyObject *args)
     ss = (netsnmp_session*) ss_opaque;
 #endif
 
-     py_netsnmp_attr_oid(table, "start_index_oid", tbl->column_header.start_idx,
-             sizeof(tbl->column_header.start_idx), &tbl->column_header.start_idx_length);
+    if (iid) {
+        py_netsnmp_attr_get_oid(iid, tbl->column_header.start_idx, sizeof(tbl->column_header.start_idx), &tbl->column_header.start_idx_length);
+    }
      val_tuple = table_getbulk_sub_entries(tbl, ss, max_repeaters, session);
   }
 

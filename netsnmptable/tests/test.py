@@ -32,7 +32,7 @@ class BasicTests(unittest.TestCase):
     def test_fetch_with_row_idx(self):
         table = netsnmptable.Table(self.netsnmp_session)
         table.parse_mib(netsnmp.Varbind('MYTABLETEST::testTable', 0))
-        tbldict = table.fetch(row_index = ("First",))
+        tbldict = table.fetch(iid = netsnmptable.str_to_varlen_iid("First"))
         self.assertEqual(self.netsnmp_session.ErrorStr, "", msg="Error during SNMP request: %s" % self.netsnmp_session.ErrorStr)
         self.assertEqual(self.netsnmp_session.ErrorNum, 0)
         self.assertEqual(self.netsnmp_session.ErrorInd, 0)

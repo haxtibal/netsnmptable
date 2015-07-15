@@ -45,7 +45,7 @@ extern PyObject* py_netsnmp_attr_obj(PyObject *obj, char * attr_name);
 extern long long py_netsnmp_attr_long(PyObject *obj, char * attr_name);
 extern int py_netsnmp_attr_set_string(PyObject *obj, char *attr_name, char *val, size_t len);
 extern int py_netsnmp_attr_string(PyObject *obj, char * attr_name, char **val, Py_ssize_t *len);
-extern int py_netsnmp_attr_oid(PyObject* self, char *attr_name, oid* p_oid, size_t maxlen, size_t* len);
+extern int py_netsnmp_attr_get_oid(PyObject* obj, oid* p_oid, size_t maxlen, size_t* len);
 extern PyObject* py_netsnmp_construct_varbind(void);
 extern int __sprint_num_objid (char* buf, oid* objid, int len);
 extern int __snprint_value (char* buf, size_t buf_len, netsnmp_variable_list* var, struct tree* tp, int type, int flag);

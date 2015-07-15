@@ -108,19 +108,15 @@ py_netsnmp_attr_set_string(PyObject *obj, char *attr_name,
   return ret;
 }
 
-int py_netsnmp_attr_oid(PyObject* self, char *attr_name, oid* p_oid, size_t maxlen, size_t* len)
+int py_netsnmp_attr_get_oid(PyObject* obj, oid* p_oid, size_t maxlen, size_t* len)
 {
-    PyObject* obj;
     PyObject* seq;
     int i, seqlen;
 
-    /* get the fixed index tuple from python side */
-    obj = py_netsnmp_attr_obj(self, attr_name);
-    if (!obj) {
-        return -1;
-    }
-
     seq = PySequence_Fast(obj, "expected a sequence");
+    if (!seq)
+        return FAILURE;
+
     seqlen = PySequence_Size(obj);
     for (i = 0; i < seqlen && i < maxlen; i++) {
         PyObject* item = PySequence_Fast_GET_ITEM(seq, i); // returns borrowed reference.

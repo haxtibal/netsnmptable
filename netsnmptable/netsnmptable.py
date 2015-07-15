@@ -20,18 +20,19 @@ class Table(object):
                 interface.table_cleanup()
             self._tbl_ptr = tbl_ptr
 
-    def fetch(self, row_index=None, max_repeaters = 10):
+    def fetch(self, iid=None, max_repeaters=10):
         """Fetch a SNMP table, or parts of a table.
 
         All information required to query a table is taken from MIB.
         Required MIB files need to be present on your system.
 
         Args:
-            varbind:   The table parent object. Tag can be given as name, full name, or dotted numericals.
-            row_index: Tuple containing outer indexes. Can be used to query a smaller subset of large tables efficiently. 
-                       If not None, the underlying getbulk/getnext requests will be started like
-                       getbulk(<parent>.<entry>.<column_1>[.<row_index_1>...<row_index_m>],
-                               <parent>.<entry>.<column_n>[.<row_index_1>...<row_index_m>],
+            varbind: The table parent object. Tag can be given as name, full name, or dotted numericals.
+            iid:     Instance ID as list of integers, to limit query with to instances starting with iid.
+                     Can be used to query a smaller subset of large tables efficiently. 
+                     If not None, the underlying getbulk/getnext requests will be started like
+                     getbulk(<parent>.<entry>.<column_1>[.<iid_1>...<iid_m>],
+                             <parent>.<entry>.<column_n>[.<iid_1>...<iid_m>],
             max_repeaters: Number of conceptual column instances which are transfered at once in a getbulk response.
                            Adjust this to the number of expected rows to make the query more efficient.
 
@@ -43,27 +44,25 @@ class Table(object):
             ErrorStr, ErrorNum and ErrorInd are updated.
 
         """
-        if (row_index):
-            self._set_start_index(row_index)
+        #if (iid):
+        #    self._set_start_index(row_index)
         self.max_repeaters = max_repeaters
-        res = interface.table_fetch(self)
+        res = interface.table_fetch(self, iid)
         return res
 
-    def _set_start_index(self, index_seq):
-        oid = []
-        for index in index_seq:
-            if isinstance(index, basestring):
-                oid.append(len(index))
-                for character in index:
-                    oid.append(ord(character))
-            elif isinstance(index, int):
-                oid = []
-                oid.append(index)
-            else:
-                #TODO: error
-                return
-        self.start_index_oid = oid
+    def __del__(self):
+        interface.table_cleanup(self._tbl_ptr)
 
-    def _del_(self):
-        print("destructing...")
-        interface.table_cleanup(self)
+def str_to_varlen_iid(index_str):
+    """Encodes a string to an variable-length string index iid.
+    Example: str_to_vlen_iid("dave") gives  [4, ord('d'), ord('a'), ord('v'), ord('e')]
+    Returns: List of integers
+    """
+    return [len(index_str)] + [ord(element) for element in list(index_str)]
+
+def str_to_fixlen_iid(index_str):
+    """Encodes a string to an fixed-length string index iid.
+    Example: str_to_vlen_iid("dave") gives  [ord('d'), ord('a'), ord('v'), ord('e')]
+    Returns: List of integers
+    """
+    return + [ord(element) for element in list(index_str)]
