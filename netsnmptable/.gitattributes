@@ -1,0 +1,4 @@
+# prevent LF -> CRLF conversion in windows
+*.c text -crlf
+*.h text -crlf
+*.py text -crlf

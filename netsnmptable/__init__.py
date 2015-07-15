@@ -1,0 +1,1 @@
+from netsnmptable import *

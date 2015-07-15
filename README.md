@@ -1,4 +1,4 @@
-# netsnmp_table #
+# netsnmptable #
 *A Python package to query SNMP tables and table subsets, complementing the original Net-SNMP Python Bindings.*
 
 ## Current state ##
@@ -34,12 +34,12 @@ The package interface is only draft. It models a table as dictionary of dictiona
 
 ```python
 import netsnmp
-import netsnmp_table
+import netsnmptable
 import pprint
 
 netsnmp_session = netsnmp.Session(Version=2, DestHost='localhost', Community='public')
 vb = netsnmp.Varbind('MYTABLETEST::testTable', 0)
-table = netsnmp_table.Table(netsnmp_session)
+table = netsnmptable.Table(netsnmp_session)
 tbldict = table.get(vb)
 pprint.pprint(tbldict)
 ```

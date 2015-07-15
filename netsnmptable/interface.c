@@ -5,7 +5,7 @@
 #include "util.h"
 #include "table.h"
 
-PyObject * netsnmp_table(PyObject *self, PyObject *args)
+PyObject * netsnmptable(PyObject *self, PyObject *args)
 {
   PyObject *session;
   PyObject *varbind;
@@ -87,7 +87,7 @@ PyObject * netsnmp_table(PyObject *self, PyObject *args)
 }
 
 static PyMethodDef ClientMethods[] = {
-  {"table",  netsnmp_table, METH_VARARGS,
+  {"table",  netsnmptable, METH_VARARGS,
     "perform an SNMP table operation."},
   {NULL, NULL, 0, NULL}        /* Sentinel */
 };
