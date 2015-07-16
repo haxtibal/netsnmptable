@@ -1,4 +1,5 @@
 from distutils.core import setup, Extension
+from distutils.version import LooseVersion, StrictVersion
 from setuptools import setup, Extension, find_packages
 import os
 import re
@@ -18,14 +19,23 @@ if intree:
     netsnmp_libs = os.popen(basedir+'/net-snmp-config --libs').read()
     libdir = os.popen(basedir+'/net-snmp-config --build-lib-dirs '+basedir).read()
     incdir = os.popen(basedir+'/net-snmp-config --build-includes '+basedir).read()
+    netsnmp_version = os.popen(basedir+'/net-snmp-config --version '+basedir).read()
     libs = re.findall(r" -l(\S+)", netsnmp_libs)
     libdirs = re.findall(r" -L(\S+)", libdir)
     incdirs = re.findall(r" -I(\S+)", incdir)
 else:
     netsnmp_libs = os.popen('net-snmp-config --libs').read()
+    netsnmp_version = os.popen('net-snmp-config --version').read()
     libdirs = re.findall(r" -L(\S+)", netsnmp_libs)
     incdirs = []
     libs = re.findall(r" -l(\S+)", netsnmp_libs)
+
+if LooseVersion(netsnmp_version) >= LooseVersion("5.5.0"):
+    # netsnmp from 5.5 uses single API session pointers, like ss = snmp_sess_open(&session);
+    cdefs = [("NETSNMP_SINGLE_API", None)]
+else:
+    # netsnmp up to 5.4.4 uses traditional API session pointers, like ss = snmp_open(&session);
+    cdefs = [()]
 
 setup(
     name="netsnmptable", version="0.0.1",
@@ -41,6 +51,7 @@ setup(
        Extension("netsnmptable.interface", ["netsnmptable/interface.c", "netsnmptable/table.c", "netsnmptable/util.c"],
                  library_dirs=libdirs,
                  include_dirs=incdirs,
-                 libraries=libs )
+                 libraries=libs,
+                 define_macros=cdefs)
        ]
     )

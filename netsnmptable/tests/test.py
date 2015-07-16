@@ -65,9 +65,9 @@ class BasicTests(unittest.TestCase):
         self.assertEqual(self.netsnmp_session.ErrorInd, 0)
         self.assertIsNotNone(tbldict)
         pprint.pprint(tbldict)
-        print("Result at ['First', 'SubFirst']['aValue'] has value %s of type %s" %
-              (tbldict[('First', 'SubFirst')]['aValue'].type,
-               tbldict[('First', 'SubFirst')]['aValue'].val))
+        print("Result at ['OuterIdx_1', 'InnerIdx_1']['aValue'] has value %s of type %s" %
+              (tbldict[('OuterIdx_1', 'InnerIdx_1')]['aValue'].type,
+               tbldict[('OuterIdx_1', 'InnerIdx_1')]['aValue'].val))
 
     def test_host_resources(self):
         table = netsnmptable.Table(self.netsnmp_session)
