@@ -6,10 +6,16 @@ import netsnmp
 import netsnmptable
 import pprint
 import time
+from types import MethodType
+
+def varbind_to_repr(self):
+    """Can be dynamically added to Varbind objects, for nice pprint output"""
+    return self.type + ":" + self.val
 
 class BasicTests(unittest.TestCase):
     def __init__(self, *args, **kwargs):
         super(BasicTests, self).__init__(*args, **kwargs)
+        netsnmp.Varbind.__repr__ = MethodType(varbind_to_repr, None, netsnmp.Varbind)
         self.netsnmp_session = netsnmp.Session(Version=2,
             DestHost='localhost',
             Community='public')
@@ -32,7 +38,7 @@ class BasicTests(unittest.TestCase):
     def test_fetch_with_row_idx(self):
         table = netsnmptable.Table(self.netsnmp_session)
         table.parse_mib(netsnmp.Varbind('MYTABLETEST::testTable', 0))
-        tbldict = table.fetch(iid = netsnmptable.str_to_varlen_iid("First"))
+        tbldict = table.fetch(iid = netsnmptable.str_to_varlen_iid("OuterIdx_2"))
         self.assertEqual(self.netsnmp_session.ErrorStr, "", msg="Error during SNMP request: %s" % self.netsnmp_session.ErrorStr)
         self.assertEqual(self.netsnmp_session.ErrorNum, 0)
         self.assertEqual(self.netsnmp_session.ErrorInd, 0)

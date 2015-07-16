@@ -80,40 +80,69 @@ Index      Description               Units      Size       Used
 ```
 
 ### Example 2: Query a multi-indexed table ###
-(outdated) Tables with more than one index are no problem. The row key tuple just gets more elements.
+Tables with more than one index are no problem. The row key tuple just gets more elements.
 
+Let's setup following table in snmpd.conf:
+```
+table MYTABLETEST::testTable 
+#                               idx1          idx2            aValue  anotherValue
+add_row MYTABLETEST::testTable "OuterIdx_1"   "InnerIdx_1"     1       2
+add_row MYTABLETEST::testTable "OuterIdx_1"   "InnerIdx_2"     3       4
+add_row MYTABLETEST::testTable "OuterIdx_2"   "InnerIdx_1"     5       6
+add_row MYTABLETEST::testTable "OuterIdx_2"   "InnerIdx_2"     7       8
+add_row MYTABLETEST::testTable "OuterIdx_3"   "InnerIdx_1"     9      10
+add_row MYTABLETEST::testTable "OuterIdx_3"   "InnerIdx_2"    11      12
+```
+
+Now query it with
 ```python
 import netsnmp
 import netsnmptable
 import pprint
+from types import MethodType
+
+def varbind_to_repr(self):
+    return self.type + ":" + self.val
+netsnmp.Varbind.__repr__ = MethodType(varbind_to_repr, None, netsnmp.Varbind)
 
 netsnmp_session = netsnmp.Session(Version=2, DestHost='localhost', Community='public')
-vb = netsnmp.Varbind('MYTABLETEST::testTable', 0)
-table = netsnmptable.Table(netsnmp_session)
-tbldict = table.get(vb)
+table = netsnmptable.Table(self.netsnmp_session)
+table.parse_mib(netsnmp.Varbind('MYTABLETEST::testTable', 0))
+tbldict = table.fetch()
+pprint.pprint(tbldict)
+```
+
+This gives
+```
+{('OuterIdx_1', 'InnerIdx_1'): {'aValue': INTEGER32:1,
+                                'anotherValue': INTEGER32:2},
+ ('OuterIdx_1', 'InnerIdx_2'): {'aValue': INTEGER32:3,
+                                'anotherValue': INTEGER32:4},
+ ('OuterIdx_2', 'InnerIdx_1'): {'aValue': INTEGER32:5,
+                                'anotherValue': INTEGER32:6},
+ ('OuterIdx_2', 'InnerIdx_2'): {'aValue': INTEGER32:7,
+                                'anotherValue': INTEGER32:8},
+ ('OuterIdx_3', 'InnerIdx_1'): {'aValue': INTEGER32:9,
+                                'anotherValue': INTEGER32:10},
+ ('OuterIdx_3', 'InnerIdx_2'): {'aValue': INTEGER32:11,
+                                'anotherValue': INTEGER32:12}}
+```
+
+### Example 3: Query a multi-indexed table with only selected index values ###
+Say we want to fetch from the same table, but only entries for "OuterIdx_2".
+```python
+table = netsnmptable.Table(self.netsnmp_session)
+table.parse_mib(netsnmp.Varbind('MYTABLETEST::testTable', 0))
+tbldict = table.fetch(iid = netsnmptable.str_to_varlen_iid("OuterIdx_2"))
 pprint.pprint(tbldict)
 ```
 
 Results in
 ```
-{('First', 'SubFirst'): {'aValue': '1', 'anotherValue': '1'},
- ('First', 'SubSecond'): {'aValue': '2', 'anotherValue': '2'},
- ('Second', 'SubFirst'): {'aValue': '3', 'anotherValue': '3'},
- ('Second', 'SubSecond'): {'aValue': '4', 'anotherValue': '4'}}
-```
-
-### Example 3: Query a multi-indexed table with only selected index values ###
-(outdated) You can limit the query to certain sub index:
-
-```python
-table.set_start_index(("First",))
-tbldict = table.get(vb)
-pprint.pprint(tbldict)
-```
-
-```
-{('First', 'SubFirst'): {'aValue': '1', 'anotherValue': '1'},
- ('First', 'SubSecond'): {'aValue': '2', 'anotherValue': '2'}}
+{('OuterIdx_2', 'InnerIdx_1'): {'aValue': INTEGER32:5,
+                                'anotherValue': INTEGER32:6},
+ ('OuterIdx_2', 'InnerIdx_2'): {'aValue': INTEGER32:7,
+                                'anotherValue': INTEGER32:8}}
 ```
 
 ## Development Resources ##
