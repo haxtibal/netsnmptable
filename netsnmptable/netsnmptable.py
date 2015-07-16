@@ -14,7 +14,7 @@ class Table(object):
         """Determine the table structure by parsing the MIB.
         After a successful run, table headers are available in indexes and columns dictionary.
         """
-        tbl_ptr = interface.table_parse_mib(varbind, self.indexes, self.columns)
+        tbl_ptr = interface.table_parse_mib(self, varbind) #, self.indexes, self.columns)
         if (tbl_ptr):
             if self._tbl_ptr:
                 interface.table_cleanup()

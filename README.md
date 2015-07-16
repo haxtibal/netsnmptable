@@ -41,14 +41,13 @@ Here are some examples how to use netsnmptable.
 import netsnmp
 import netsnmptable
 
+# create a table object
 table = netsnmptable.Table(netsnmp.Session(Version=2,
             DestHost='localhost',
             Community='public'))
-
 table.parse_mib(netsnmp.Varbind('HOST-RESOURCES-MIB:hrStorageTable', 0))
 
-table = netsnmptable.Table(self.netsnmp_session)
-table.parse_mib(netsnmp.Varbind('HOST-RESOURCES-MIB:hrStorageTable', 0))
+# go and get the table...
 tbldict = table.fetch()
 if (self.netsnmp_session.ErrorNum):
     print("Can't query HOST-RESOURCES-MIB:hrStorageTable.")
@@ -109,8 +108,9 @@ def varbind_to_repr(self):
     return self.type + ":" + self.val
 netsnmp.Varbind.__repr__ = MethodType(varbind_to_repr, None, netsnmp.Varbind)
 
-netsnmp_session = netsnmp.Session(Version=2, DestHost='localhost', Community='public')
-table = netsnmptable.Table(self.netsnmp_session)
+table = netsnmptable.Table(netsnmp.Session(Version=2,
+            DestHost='localhost',
+            Community='public'))
 table.parse_mib(netsnmp.Varbind('MYTABLETEST::testTable', 0))
 tbldict = table.fetch()
 pprint.pprint(tbldict)
@@ -135,7 +135,9 @@ This gives
 ### Example 3: Query a multi-indexed table with only selected index values ###
 Say we want to fetch from the same table, but only entries for "OuterIdx_2".
 ```python
-table = netsnmptable.Table(self.netsnmp_session)
+table = netsnmptable.Table(netsnmp.Session(Version=2,
+            DestHost='localhost',
+            Community='public'))
 table.parse_mib(netsnmp.Varbind('MYTABLETEST::testTable', 0))
 tbldict = table.fetch(iid = netsnmptable.str_to_varlen_iid("OuterIdx_2"))
 pprint.pprint(tbldict)

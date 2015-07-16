@@ -12,6 +12,7 @@ build/
 .cproject
 .project
 .pydevproject
+.settings/
 
 # development sketches
 dev/
