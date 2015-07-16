@@ -17,20 +17,21 @@ typedef struct column_s {
 } column_t;
 
 /* column general data - one per table */
-typedef struct column_info_s {
+typedef struct column_scheme_s {
     oid name[MAX_OID_LEN];
     size_t name_length;
     oid start_idx[MAX_OID_LEN];
     size_t start_idx_length;
     int fields;
-    column_t *column;
-} column_info_t;
+    column_t* column;
+    column_t** position_map; // maps column by number in response to a column entry
+} column_scheme_t;
 
 typedef struct t_info_s {
     oid root[MAX_OID_LEN];
     size_t rootlen;
-    column_info_t column_header;
     char *table_name;
+    column_scheme_t column_scheme;
 } table_info_t;
 
 extern table_info_t* table_allocate(char* tablename);

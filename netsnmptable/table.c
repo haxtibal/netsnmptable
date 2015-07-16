@@ -45,10 +45,11 @@ table_info_t* table_allocate(char* tablename)
 
     table_info->table_name = NULL;
 
-    table_info->column_header.column = NULL;
-    table_info->column_header.fields = 0;
-    table_info->column_header.name_length = 0;
-    table_info->column_header.start_idx_length = 0;
+    table_info->column_scheme.column = NULL;
+    table_info->column_scheme.fields = 0;
+    table_info->column_scheme.name_length = 0;
+    table_info->column_scheme.start_idx_length = 0;
+    table_info->column_scheme.position_map = NULL;
 
     return table_info;
 }
@@ -58,24 +59,26 @@ void table_deallocate(table_info_t* table)
     int col;
 
     if (table) {
-        if (table->column_header.column) {
-            for (col=0; col<table->column_header.fields; col++) {
-                Py_DECREF(table->column_header.column[col].py_label_str);
+        if (table->column_scheme.column) {
+            for (col=0; col<table->column_scheme.fields; col++) {
+                Py_DECREF(table->column_scheme.column[col].py_label_str);
             }
-            free(table->column_header.column);
+            free(table->column_scheme.column);
         }
+        if (table->column_scheme.position_map)
+            free(table->column_scheme.position_map);
         free(table);
     }
 }
 
-void reverse_fields(column_info_t* column_info) {
+void reverse_fields(column_scheme_t* column_scheme) {
     column_t tmp;
     int i;
 
-    for (i = 0; i < column_info->fields / 2; i++) {
-        memcpy(&tmp, &(column_info->column[i]), sizeof(column_t));
-        memcpy(&(column_info->column[i]), &(column_info->column[column_info->fields - 1 - i]), sizeof(column_t));
-        memcpy(&(column_info->column[column_info->fields - 1 - i]), &tmp, sizeof(column_t));
+    for (i = 0; i < column_scheme->fields / 2; i++) {
+        memcpy(&tmp, &(column_scheme->column[i]), sizeof(column_t));
+        memcpy(&(column_scheme->column[i]), &(column_scheme->column[column_scheme->fields - 1 - i]), sizeof(column_t));
+        memcpy(&(column_scheme->column[column_scheme->fields - 1 - i]), &tmp, sizeof(column_t));
     }
 }
 
@@ -83,7 +86,7 @@ void reverse_fields(column_info_t* column_info) {
  * Table Syntax for SMIv2 is specified RFC 2578, 7.1.12. Conceptual Tables (https://tools.ietf.org/html/rfc2578#page-25).
  */
 int table_get_field_names(table_info_t* table_info) {
-    column_info_t* column_info = &table_info->column_header;
+    column_scheme_t* column_info = &table_info->column_scheme;
     char *buf = NULL, *name_p = NULL;
     size_t buf_len = 0, out_len = 0;
 #ifndef NETSNMP_DISABLE_MIB_LOADING
@@ -205,6 +208,9 @@ int table_get_field_names(table_info_t* table_info) {
         /* add 0 as innermost suboid */
         column_info->name_length = table_info->rootlen; // + 1;
         DBPRTOID(D_DBG, "Column root OID for getbulk: ", column_info->name, column_info->name_length);
+
+        /* additional index to get column bei number in response */
+        column_info->position_map = calloc(column_info->fields, sizeof(column_t*));
     }
 
     if (buf != NULL) {
@@ -214,29 +220,28 @@ int table_get_field_names(table_info_t* table_info) {
     return SUCCESS;
 }
 
-char is_valid_var(table_info_t* table_info, netsnmp_variable_list *vars, int nr_in_response)
+static column_t* get_column_validated(table_info_t* table_info, netsnmp_variable_list *vars, int nr_in_response)
 {
+    column_t* column = table_info->column_scheme.position_map[nr_in_response];
+
     if (vars->type == SNMP_ENDOFMIBVIEW) {
         DBPRT(D_DBG, ("Returned varbinding is end of MIB.\n"));
-        return 1;
-    } else if (memcmp(vars->name, table_info->column_header.name, table_info->rootlen * sizeof(oid)) != 0) {
+        return NULL;
+    } else if (memcmp(vars->name, table_info->column_scheme.name, table_info->rootlen * sizeof(oid)) != 0) {
         DBPRT(D_DBG, ("Returned varbinding does not belong to our table.\n"));
         DBPRTOID(D_DBG, " varbind:     ", vars->name, table_info->rootlen);
-        DBPRTOID(D_DBG, " header name: ", table_info->column_header.name, table_info->rootlen);
-        return 1;
-    } else if (vars->name[table_info->column_header.name_length] != table_info->column_header.column[nr_in_response].subid){
+        DBPRTOID(D_DBG, " header name: ", table_info->column_scheme.name, table_info->rootlen);
+        return NULL;
+    } else if (vars->name[table_info->column_scheme.name_length] != column->subid){
         DBPRT(D_DBG, ("Returned varbinding is not a instance of expected column (%lu vs %lu).\n",
-                (long) vars->name[table_info->column_header.name_length],
-                (long) table_info->column_header.column[nr_in_response].subid));
-        return 1;
-    } else if(memcmp(&vars->name[table_info->column_header.name_length+1], table_info->column_header.start_idx, table_info->column_header.start_idx_length * sizeof(oid)) != 0) {
+                (long) vars->name[table_info->column_scheme.name_length],
+                (long) column->subid));
+        return NULL;
+    } else if(memcmp(&vars->name[table_info->column_scheme.name_length+1], table_info->column_scheme.start_idx, table_info->column_scheme.start_idx_length * sizeof(oid)) != 0) {
         DBPRT(D_DBG, ("Returned varbinding does not have requested index.\n"));
-//        oid* p = &vars->name[table_info->column_header.name_length+1];
-//        DBPRTOID(D_DBG, " varbind:    ", p, table_info->column_header.start_idx_length);
-//        DBPRTOID(D_DBG, " startindex: ", table_info->column_header.start_idx, table_info->column_header.start_idx_length);
-        return 1;
+        return NULL;
     }
-    return 0;
+    return column;
 }
 
 /*
@@ -280,19 +285,7 @@ char* find_instance_id(char* buf, char* table_name) {
     return name_p;
 }
 
-/* find entry with suboid in table_info */
-column_t* get_column_by_subid(column_info_t* columns, int subid)
-{
-    int col;
-    for (col = 0; col < columns->fields; col++) {
-        if (columns->column[col].subid == subid) {
-            return &columns->column[col];
-        }
-    }
-    return NULL;
-}
-
-int store_varbind(PyObject* py_table_dict, PyObject* py_varbind, char* row_index_str, column_t* column, netsnmp_variable_list *result_varbind, table_info_t* table) {
+static int store_varbind(PyObject* py_table_dict, PyObject* py_varbind, char* row_index_str, column_t* column, netsnmp_variable_list *result_varbind) {
     PyObject* py_col_dict = NULL;
     char *buf = NULL;
     char *instance_id = NULL;
@@ -421,7 +414,7 @@ PyObject* create_varbind(netsnmp_variable_list *vars, struct tree *tp, u_char* b
 }
 
 PyObject* table_getbulk_sub_entries(table_info_t* table_info, netsnmp_session* ss, int max_repeaters, PyObject *session) {
-    column_info_t* column_info = &table_info->column_header;
+    column_scheme_t* column_scheme = &table_info->column_scheme;
     int running = 1;
     netsnmp_pdu *pdu, *response;
     netsnmp_variable_list *vars;
@@ -438,6 +431,13 @@ PyObject* table_getbulk_sub_entries(table_info_t* table_info, netsnmp_session* s
     int tmp_dont_breakdown_oids;
     PyObject* py_table_dict = NULL;
     PyObject* py_varbind = NULL;
+    int nr_of_requested_columns = 0;
+    int response_vb_count = 0;
+    int nr_columns_ended = 0;
+    int retry_nosuch = 0;
+    char err_str[STR_BUF_SIZE];
+    int err_num;
+    int err_ind;
 
     /* Create function, transfers reference ownership. */
     py_table_dict = PyDict_New();
@@ -447,29 +447,29 @@ PyObject* table_getbulk_sub_entries(table_info_t* table_info, netsnmp_session* s
     netsnmp_ds_set_boolean(NETSNMP_DS_LIBRARY_ID, NETSNMP_DS_LIB_DONT_BREAKDOWN_OIDS, 0);
 
     /* initial setup for 1st getbulk request */
-    for (col = 0; col < column_info->fields; col++) {
-        column = &column_info->column[col];
-
-        column->last_oid_len = column_info->name_length;
-        memcpy(column->last_oid, column_info->name, column_info->name_length * sizeof(oid));
+    for (col = 0; col < column_scheme->fields; col++) {
+        column = &column_scheme->column[col];
+        column->last_oid_len = column_scheme->name_length;
+        memcpy(column->last_oid, column_scheme->name, column_scheme->name_length * sizeof(oid));
         column->last_oid[column->last_oid_len++] = column->subid;
 
         /* append the start index, if any */
-        DBPRTOID(D_DBG, "appending start index: ", table_info->column_header.start_idx, table_info->column_header.start_idx_length);
+        DBPRTOID(D_DBG, "appending start index: ", table_info->column_scheme.start_idx, table_info->column_scheme.start_idx_length);
         memcpy(&column->last_oid[column->last_oid_len],
-                table_info->column_header.start_idx,
-                table_info->column_header.start_idx_length * sizeof(oid));
-        column->last_oid_len += table_info->column_header.start_idx_length;
+                table_info->column_scheme.start_idx,
+                table_info->column_scheme.start_idx_length * sizeof(oid));
+        column->last_oid_len += table_info->column_scheme.start_idx_length;
 
-        /* a final zero... */
+        /* a final zero...required? */
         column->last_oid[column->last_oid_len++] = 0;
 
-        /* initially set to 1, to get it added to the first pdu */
         DBPRTOID(D_DBG, "column last varbind OID", column->last_oid, column->last_oid_len);
     }
 
     DBPRT(D_DBG, ("max_repeaters = %i\n", max_repeaters));
     while (running) {
+        nr_of_requested_columns = 0;
+
         /*
          * create PDU for GETBULK request and add object name to request
          */
@@ -477,13 +477,14 @@ PyObject* table_getbulk_sub_entries(table_info_t* table_info, netsnmp_session* s
         pdu->non_repeaters = 0;
         pdu->max_repetitions = max_repeaters;
 
-        for (col = 0; col < column_info->fields; col++) {
-            column = &column_info->column[col];
+        for (col = 0; col < column_scheme->fields; col++) {
+            column = &column_scheme->column[col];
 
             /* column_varbinds is updated during each resonse parsing */
             if (!column->end) {
                 DBPRTOID(D_DBG, "add oid to getbulk request pdu", column->last_oid, column->last_oid_len);
                 snmp_add_null_var(pdu, column->last_oid, column->last_oid_len);
+                table_info->column_scheme.position_map[nr_of_requested_columns++] = column;
             }
             column->last_var = NULL;
             column->end = 0;
@@ -495,10 +496,7 @@ PyObject* table_getbulk_sub_entries(table_info_t* table_info, netsnmp_session* s
         DBPRT(D_DBG, ("do getbulk request\n"));
         DBPRT(D_DBG, ("session - version %lu, community %s\n", ss->version, ss->community));
 
-        int retry_nosuch = 0; // = py_netsnmp_attr_long(session, "RetryNoSuch");
-        char err_str[STR_BUF_SIZE];
-        int err_num;
-        int err_ind;
+        retry_nosuch = 0; // = py_netsnmp_attr_long(session, "RetryNoSuch");
         status = __send_sync_pdu(ss, pdu, &response, retry_nosuch, err_str, &err_num, &err_ind);
         __py_netsnmp_update_session_errors(session, err_str, err_num, err_ind);
 
@@ -510,8 +508,8 @@ PyObject* table_getbulk_sub_entries(table_info_t* table_info, netsnmp_session* s
                  * check resulting variables
                  */
                 vars = response->variables;
-                int nr_in_response = 0;
-                int nr_columns_ended = 0;
+                response_vb_count = 0;
+                nr_columns_ended = 0;
                 DBPRT(D_DBG, ("parse response\n"));
                 while (vars) {
                     /* Get the string representation from returned identifier.
@@ -525,34 +523,27 @@ PyObject* table_getbulk_sub_entries(table_info_t* table_info, netsnmp_session* s
 
                     DBPRT(D_DBG, ("print-name of varbind = %s, len = %lu, tp = %p\n", buf, buf_len, tp));
 
-                    int vb_col = nr_in_response % column_info->fields;
-                    if (is_valid_var(table_info, vars, vb_col) == 1) {
+                    int response_slot = response_vb_count % nr_of_requested_columns;
+                    column = get_column_validated(table_info, vars, response_slot);
+                    if (!column) {
                         /* skip this variable */
-                        if (!column_info->column[vb_col].end) {
-                            DBPRT(D_DBG, ("Detected end of column %i\n", vb_col));
-                            column_info->column[vb_col].end = 1;
+                        if (!column_scheme->column[response_slot].end) {
+                            DBPRT(D_DBG, ("Detected end of column %i\n", response_slot));
+                            column_scheme->column[response_slot].end = 1;
                             nr_columns_ended++;
-                            if (nr_columns_ended == column_info->fields) {
+                            if (nr_columns_ended == nr_of_requested_columns) {
                                 DBPRT(D_DBG, ("Detected end of all columns\n"));
                                 running = 0;
                                 break;
                             }
                         }
                         vars = vars->next_variable;
-                        nr_in_response++;
+                        response_vb_count++;
                         continue;
                     }
 
-                    column = get_column_by_subid(column_info, vars->name[table_info->rootlen]);
-                    if (column) {
-                        DBPRT(D_DBG, ("Update latest varbind pointer\n"));
-                        column->last_var = vars;
-                    } else {
-                        DBPRT(D_DBG, ("Unexpected column in response\n"));
-                        running = 0;
-                        exitval = FAILURE;
-                        break;
-                    }
+                    DBPRT(D_DBG, ("Update latest varbind pointer\n"));
+                    column->last_var = vars;
 
                     DBPRT(D_DBG, ("find row to which this varbind belongs\n"));
                     if ((name_p = find_instance_id((char*)buf, table_info->table_name)) == NULL) {
@@ -562,25 +553,24 @@ PyObject* table_getbulk_sub_entries(table_info_t* table_info, netsnmp_session* s
                         exitval = FAILURE;
                         break;
                     }
-
                     DBPRT(D_DBG, ("name_p now points to %s in %s\n", name_p, buf));
 
                     /* name_p now points to instance id part of OID */
                     py_varbind = create_varbind(vars, tp, buf, buf_len);
-                    store_varbind(py_table_dict, py_varbind, name_p, column, vars, table_info);
+                    store_varbind(py_table_dict, py_varbind, name_p, column, vars);
                     Py_DECREF(py_varbind);
 
                     buf = NULL;
                     buf_len = 0;
                     vars = vars->next_variable;
 
-                    nr_in_response++;
+                    response_vb_count++;
                 }
                 /* end of request parsing while loop... */
 
-                for (col = 0; col < column_info->fields; col++) {
-                    column = &column_info->column[col];
-
+                /* All varbinds in response have been processed. Check which varbinds have to be added to the next getbulk request. */
+                for (col = 0; col < column_scheme->fields; col++) {
+                    column = &column_scheme->column[col];
                     /* response vars list will be freed soon, save initial oids for next request */
                     if (!column->end && column->last_var) {
                         column->last_oid_len = column->last_var->name_length;

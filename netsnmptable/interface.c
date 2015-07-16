@@ -38,8 +38,8 @@ PyObject* netsnmptable_parse_mib(PyObject *self, PyObject *args)
               if (table_get_field_names(tbl) < 0)
                   goto done;
 
-              for (col=0; col<tbl->column_header.fields; col++) {
-                  PyList_Append(py_columns_list, tbl->column_header.column[col].py_label_str);
+              for (col=0; col<tbl->column_scheme.fields; col++) {
+                  PyList_Append(py_columns_list, tbl->column_scheme.column[col].py_label_str);
                   PyList_Reverse(py_columns_list);
               }
           }
@@ -129,7 +129,7 @@ PyObject* netsnmptable_fetch(PyObject *self, PyObject *args)
 #endif
 
     if (iid) {
-        py_netsnmp_attr_get_oid(iid, tbl->column_header.start_idx, sizeof(tbl->column_header.start_idx), &tbl->column_header.start_idx_length);
+        py_netsnmp_attr_get_oid(iid, tbl->column_scheme.start_idx, sizeof(tbl->column_scheme.start_idx), &tbl->column_scheme.start_idx_length);
     }
      val_tuple = table_getbulk_sub_entries(tbl, ss, max_repeaters, session);
   }

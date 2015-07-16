@@ -17,7 +17,8 @@ if (self.netsnmp_session.ErrorNum):
     exit(-1)
 
 print("{:10s} {:25s} {:10s} {:10s} {:10s}".format("Index", "Description", "Units", "Size", "Used"))
-for row_key in tbldict:
+row_keys = sorted(list(tbldict.keys()))
+for row_key in row_keys:
     row = tbldict[row_key]
     cell_list = [element.val if element else "" for element in
                  [row.get('hrStorageIndex'), row.get('hrStorageDescr'),

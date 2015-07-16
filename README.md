@@ -51,7 +51,8 @@ if (self.netsnmp_session.ErrorNum):
     exit(-1)
 
 print("{:10s} {:25s} {:10s} {:10s} {:10s}".format("Index", "Description", "Units", "Size", "Used"))
-for row_key in tbldict:
+row_keys = sorted(list(tbldict.keys()))
+for row_key in row_keys:
     row = tbldict[row_key]
     cell_list = [element.val if element else "" for element in
                  [row.get('hrStorageIndex'), row.get('hrStorageDescr'),
@@ -63,16 +64,19 @@ for row_key in tbldict:
 Results in
 ```
 Index      Description               Units      Size       Used      
-32         /                         4096       10063200   2494643   
-33         /sys/fs/fuse/connections  4096       0          0         
-1          Physical memory           1024       2054128    686944    
-34         /run/vmblock-fuse         512        0          0         
+1          Physical memory           1024       2054128    233540    
+3          Virtual memory            1024       3099628    361064    
+6          Memory buffers            1024       2054128    14564     
+7          Cached memory             1024       82232      82232     
 8          Shared memory             1024       0                    
-3          Virtual memory            1024       3099628    686944    
+10         Swap space                1024       1045500    127524    
 31         /dev                      4096       2560       0         
-10         Swap space                1024       1045500    0         
-6          Memory buffers            1024       2054128    75828     
-7          Cached memory             1024       332196     332196   
+32         /                         4096       10063200   2495552   
+33         /sys/fs/fuse/connections  4096       0          0         
+34         /run/vmblock-fuse         512        0          0         
+35         /media/sources            4096       121833215  92355036  
+36         /media/sandboxes          4096       121833215  92355036  
+37         /media/cdrom0             2048       32876      32876    
 ```
 
 ### Example 2: Query a multi-indexed table ###
