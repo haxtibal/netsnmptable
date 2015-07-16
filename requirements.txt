@@ -22,13 +22,14 @@ integer-valued indexes are supported.
 (implemented)
 
 string-valued, fixed-length string indexes are supported.
-Example: idx = "dave"  =  4.'d'.'a'.'v'.'e'.
+Note: These indexes are marked as IMPLIED in MIB, and can only appear as last index for a table.
+Example: idx = "dave"  =  'd'.'a'.'v'.'e'.
 (implemented)
 
 string-valued, variable-length strings indexes are supported.
-Note: These indexes are marked as IMPLIED in MIB, and can only appear as last index for a table. 
-Example: idx = "dave"  =  'd'.'a'.'v'.'e'.
-(draft)
+
+Example: idx = "dave"  =  4.'d'.'a'.'v'.'e'.
+(implemented)
 
 object identifier-valued - preceded by the IMPLIED keyword - indexes are supported.
 (draft)
@@ -79,8 +80,11 @@ SMIv2 application-defined: Integer32 -> int, IpAddress -> ?, Counter32 -> ?, Gau
 
 5. Error Handling
 
-Querying a host without SNMP agent results in reasonable error response. (Excpetion?)
+Querying a host without SNMP service running results in reasonable error response.
+(implemented)
 
 Querying a table without any entry results in an empty dictionary.
+(implemented)
 
 Querying when required MIBs are not available results in reasonable error response. (Excpetion?)
+(draft)
