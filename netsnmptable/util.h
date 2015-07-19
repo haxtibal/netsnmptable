@@ -56,7 +56,7 @@ extern int __snprint_value(char* buf, size_t buf_len,
 extern int __get_type_str(int type, char* str);
 extern int __translate_asn_type(int type);
 extern int __is_leaf(struct tree* tp);
-extern int __send_sync_pdu(netsnmp_session *ss, netsnmp_pdu *pdu,
+extern int __send_sync_pdu(void *ss, netsnmp_pdu *pdu,
         netsnmp_pdu **response, int retry_nosuch, char *err_str, int *err_num,
         int *err_ind);
 extern void __py_netsnmp_update_session_errors(PyObject *session, char *err_str,
