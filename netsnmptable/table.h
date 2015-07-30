@@ -38,6 +38,6 @@ extern table_info_t* table_allocate(char* tablename);
 extern void table_deallocate(table_info_t* table);
 extern int table_get_field_names(table_info_t* table_info);
 extern PyObject* table_getbulk_sub_entries(table_info_t* table_info,
-        netsnmp_session* ss, int max_repeaters, PyObject *session);
+		void* ss_opaque, int max_repeaters, PyObject *session);
 
 #endif /* SNMPTABLE_H_ */

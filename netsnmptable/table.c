@@ -418,7 +418,7 @@ PyObject* create_varbind(netsnmp_variable_list *vars, struct tree *tp,
 }
 
 PyObject* table_getbulk_sub_entries(table_info_t* table_info,
-        netsnmp_session* ss, int max_repeaters, PyObject *session) {
+        void* ss_opaque, int max_repeaters, PyObject *session) {
     column_scheme_t* column_scheme = &table_info->column_scheme;
     int running = 1;
     netsnmp_pdu *pdu, *response;
@@ -502,10 +502,16 @@ PyObject* table_getbulk_sub_entries(table_info_t* table_info,
         /*
          * do the request
          */
-        DBPRT(D_DBG, ("do getbulk request\n")); DBPRT(D_DBG, ("session - version %lu, community %s\n", ss->version, ss->community));
+        DBPRT(D_DBG, ("do getbulk request\n"));
+
+#ifdef NETSNMP_SINGLE_API
+        DBPRT(D_DBG, ("session - version %lu, community %s\n", snmp_sess_session((void*)ss_opaque)->version, snmp_sess_session((void*)ss_opaque)->community));
+#else
+        DBPRT(D_DBG, ("session - version %lu, community %s\n", ((netsnmp_session*)ss_opaque)->version, ((netsnmp_session*)ss_opaque)->community));
+#endif
 
         retry_nosuch = 0; // = py_netsnmp_attr_long(session, "RetryNoSuch");
-        status = __send_sync_pdu(ss, pdu, &response, retry_nosuch, err_str,
+        status = __send_sync_pdu(ss_opaque, pdu, &response, retry_nosuch, err_str,
                 &err_num, &err_ind);
         __py_netsnmp_update_session_errors(session, err_str, err_num, err_ind);
 
@@ -599,7 +605,7 @@ PyObject* table_getbulk_sub_entries(table_info_t* table_info,
                 exitval = response_err(response);
             }
         } else if (status == STAT_TIMEOUT) {
-            DBPRT(D_DBG, ("Timeout: No Response from %s\n", ss->peername));
+            DBPRT(D_DBG, ("Timeout: No Response from peer.\n"));
             running = 0;
             exitval = FAILURE;
         } else { /* status == STAT_ERROR */

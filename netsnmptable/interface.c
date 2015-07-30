@@ -85,7 +85,6 @@ PyObject* netsnmptable_fetch(PyObject *self, PyObject *args) {
     PyObject* iid = NULL;
     table_info_t* tbl = NULL;
     long ss_opaque = 0;
-    netsnmp_session *ss = NULL;
     long max_repeaters;
     int ret_exceptional = 0;
 
@@ -133,23 +132,12 @@ PyObject* netsnmptable_fetch(PyObject *self, PyObject *args) {
             goto done;
         }
 
-        /* NetSNMP in 5.4.x used to open session with ss = snmp_open(&session) for SNMPv1/v2,
-         * but they changed to ss = snmp_sess_open(&session) with 5.5.
-         * TODO: We probably have no chance to detect which API call was used to get the session pointer,
-         * and have to introduce our own session.
-         */
-#ifdef NETSNMP_SINGLE_API
-        ss = snmp_sess_session((void*)ss_opaque);
-#else
-        ss = (netsnmp_session*) ss_opaque;
-#endif
-
         if (iid) {
             py_netsnmp_attr_get_oid(iid, tbl->column_scheme.start_idx,
                     sizeof(tbl->column_scheme.start_idx),
                     &tbl->column_scheme.start_idx_length);
         }
-        val_tuple = table_getbulk_sub_entries(tbl, ss, max_repeaters, session);
+        val_tuple = table_getbulk_sub_entries(tbl, (void*)ss_opaque, max_repeaters, session);
     }
 
     done: if (ret_exceptional)

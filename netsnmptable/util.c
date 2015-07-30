@@ -379,7 +379,7 @@ int __is_leaf(tp)
 
 /* takes ss and pdu as input and updates the 'response' argument */
 /* the input 'pdu' argument will be freed */
-int __send_sync_pdu(netsnmp_session *ss, netsnmp_pdu *pdu,
+int __send_sync_pdu(void *ss, netsnmp_pdu *pdu,
         netsnmp_pdu **response, int retry_nosuch, char *err_str, int *err_num,
         int *err_ind) {
     int status = 0;
@@ -401,10 +401,16 @@ int __send_sync_pdu(netsnmp_session *ss, netsnmp_pdu *pdu,
     retry:
 
     Py_BEGIN_ALLOW_THREADS
+
+    /* NetSNMP in 5.4.x used to open session with ss = snmp_open(&session) for SNMPv1/v2,
+     * but they changed to ss = snmp_sess_open(&session) with 5.5.
+     * TODO: We probably have no chance to detect which API call was used to get the session pointer,
+     * and have to introduce our own session.
+     */
 #ifdef NETSNMP_SINGLE_API
     status = snmp_sess_synch_response(ss, pdu, response);
 #else
-    status = snmp_synch_response(ss, pdu, response);
+    status = snmp_synch_response((netsnmp_session*) ss, pdu, response);
 #endif
     Py_END_ALLOW_THREADS
 
@@ -462,7 +468,11 @@ int __send_sync_pdu(netsnmp_session *ss, netsnmp_pdu *pdu,
 
     default:
         strcat(err_str, "send_sync_pdu: unknown status");
-        *err_num = ss->s_snmp_errno;
+#ifdef NETSNMP_SINGLE_API
+        *err_num = snmp_sess_session(ss)->s_snmp_errno;
+#else
+        *err_num = ((netsnmp_session*)ss)->s_snmp_errno;
+#endif
         break;
     }
     done: if (tmp_err_str) {

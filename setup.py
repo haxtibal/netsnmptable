@@ -31,10 +31,10 @@ else:
     libs = re.findall(r" -l(\S+)", netsnmp_libs)
 
 if LooseVersion(netsnmp_version) >= LooseVersion("5.5.0"):
-    cdefs = ("NETSNMP_SINGLE_API", None)
+    cdefs = [("NETSNMP_SINGLE_API", None)]
     #netsnmp from 5.5 uses single API session pointers, like ss = snmp_sess_open(&session);
 else:
-    cdefs = ()
+    cdefs = None
     #netsnmp up to 5.4.4 uses traditional API session pointers, like ss = snmp_open(&session);
 
 setup(
