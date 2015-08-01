@@ -108,6 +108,11 @@ PyObject* netsnmptable_fetch(PyObject *self, PyObject *args) {
                     "Session object has no sess_ptr attribute");
             ret_exceptional = 1;
             goto done;
+        } else if ((void*)ss_opaque == NULL) {
+            PyErr_SetString(PyExc_RuntimeError,
+                    "Session pointer not initialized");
+            ret_exceptional = 1;
+            goto done;
         }
 
         /* get netsnmp session pointer from python Session instance */
