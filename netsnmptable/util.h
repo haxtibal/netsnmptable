@@ -37,6 +37,9 @@ extern int _debug_level;
 #define STR_BUF_SIZE (MAX_TYPE_NAME_LEN * MAX_OID_LEN)
 #define MAX_TYPE_NAME_LEN 32
 
+#define NO_FLAGS 0x00
+#define USE_NUMERIC_OIDS 0x08
+#define USE_LONG_NAMES 0x02
 #define USE_BASIC 0
 #define USE_ENUMS 1
 #define USE_SPRINT_VALUE 2

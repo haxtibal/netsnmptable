@@ -31,6 +31,8 @@ typedef struct t_info_s {
     oid root[MAX_OID_LEN];
     size_t rootlen;
     char *table_name;
+    int getlabel_flag;
+    int sprintval_flag;
     column_scheme_t column_scheme;
 } table_info_t;
 

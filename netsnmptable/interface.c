@@ -119,6 +119,19 @@ PyObject* netsnmptable_fetch(PyObject *self, PyObject *args) {
             goto done;
         }
 
+        tbl->getlabel_flag = NO_FLAGS;
+        tbl->sprintval_flag = USE_BASIC;
+        if (py_netsnmp_attr_long(session, "UseLongNames"))
+        	tbl->getlabel_flag |= USE_LONG_NAMES;
+        if (py_netsnmp_attr_long(session, "UseNumeric"))
+        	tbl->getlabel_flag |= USE_NUMERIC_OIDS;
+        if (py_netsnmp_attr_long(session, "UseLongNames"))
+            tbl->getlabel_flag |= USE_LONG_NAMES;
+        if (py_netsnmp_attr_long(session, "UseEnums"))
+        	tbl->sprintval_flag = USE_ENUMS;
+        if (py_netsnmp_attr_long(session, "UseSprintValue"))
+        	tbl->sprintval_flag = USE_SPRINT_VALUE;
+
         max_repeaters = py_netsnmp_attr_long(table, "max_repeaters");
         if (max_repeaters < 0) {
             PyErr_SetString(PyExc_RuntimeError,
@@ -132,6 +145,7 @@ PyObject* netsnmptable_fetch(PyObject *self, PyObject *args) {
                     sizeof(tbl->column_scheme.start_idx),
                     &tbl->column_scheme.start_idx_length);
         }
+
         val_tuple = table_getbulk_sub_entries(tbl, (void*)ss_opaque, max_repeaters, session);
     }
 

@@ -378,13 +378,12 @@ int response_err(netsnmp_pdu *response) {
  * buf_len - size of buf
  */
 PyObject* create_varbind(netsnmp_variable_list *vars, struct tree *tp,
-        u_char* buf, size_t buf_len) {
+        u_char* buf, size_t buf_len, int sprintval_flag) {
     int type;
     int getlabel_flag = NO_FLAGS;
     char type_str[MAX_TYPE_NAME_LEN];
     u_char str_buf[STR_BUF_SIZE];
     int len;
-    int sprintval_flag = USE_BASIC;
     PyObject *varbind = py_netsnmp_construct_varbind();
 
 //    if (py_netsnmp_attr_long(session, "UseEnums"))
@@ -574,7 +573,7 @@ PyObject* table_getbulk_sub_entries(table_info_t* table_info,
                     } DBPRT(D_DBG, ("name_p now points to %s in %s\n", name_p, buf));
 
                     /* name_p now points to instance id part of OID */
-                    py_varbind = create_varbind(vars, tp, buf, buf_len);
+                    py_varbind = create_varbind(vars, tp, buf, buf_len, table_info->sprintval_flag);
                     store_varbind(py_table_dict, py_varbind, name_p, column,
                             vars);
                     Py_DECREF(py_varbind);
