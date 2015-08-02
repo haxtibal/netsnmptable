@@ -164,12 +164,10 @@ Other people also tackle the hassle of dealing with SNMP in Python and found int
 Below is an incomplete and unordered list.
 
 ### Libraries ###
--[easysnmp](https://github.com/fgimian/easysnmp) - "Pythonic SNMP library based on the official Net-SNMP bindings".
- Very nice approach to improve the original by sophisticated tests and more pythonic interface and design. 
--[PySNMP](http://pysnmp.sourceforge.net) - Pure Python SNMP library, to act in Agent/Manager/Proxy role.
--[snimpy](https://github.com/vincentbernat/snimpy) - Library on top of PySNMP. "Snimpy is aimed at being the more Pythonic possible. You should forget that you are doing SNMP requests."
+- [easysnmp](https://github.com/fgimian/easysnmp) - "Pythonic SNMP library based on the official Net-SNMP bindings". Very nice approach to improve the original by sophisticated tests and more pythonic interface and design. 
+- [PySNMP](http://pysnmp.sourceforge.net) - Pure Python SNMP library, to act in Agent/Manager/Proxy role.
+- [snimpy](https://github.com/vincentbernat/snimpy) - Library on top of PySNMP. "Snimpy is aimed at being the more Pythonic possible. You should forget that you are doing SNMP requests."
 
 ### Table handling ###
--[HNMP](https://github.com/trehn/hnmp) - PySNMP based package, to "ease the pain of retrieving and processing data from SNMP-capable devices".
- Let's you define table structures manually, rather than parsing them from MIB, because "Depending on MIB files would make the calling piece of code harder to distribute". 
--[A Munin Plugin](https://raw.githubusercontent.com/munin-monitoring/contrib/master/plugins/snmp/snmp__airport), get's table via netsnmp.snmpwalk and converts it to a dictionary.
+- [HNMP](https://github.com/trehn/hnmp) - PySNMP based package, to "ease the pain of retrieving and processing data from SNMP-capable devices". Let's you define table structures manually, rather than parsing them from MIB, because "Depending on MIB files would make the calling piece of code harder to distribute". 
+- [A Munin Plugin](https://raw.githubusercontent.com/munin-monitoring/contrib/master/plugins/snmp/snmp__airport), get's table via netsnmp.snmpwalk and converts it to a dictionary.
