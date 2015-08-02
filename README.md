@@ -2,15 +2,15 @@
 *A Python C Extension package to query SNMP tables and table subsets, complementing the original Net-SNMP Python Bindings.*
 
 ## Goals ##
-This project aims to implement SNMP table query functionality for Python using the NetSNMP libraries, with features as:
+This project aims to implement SNMP table query functionality for Python using the Net-SNMP libraries, with features as:
 - High-level, easy to use Python interface
 - Resulting data structures behave like tables, in the sense that a cell is addressable by row and column
 - Table structure is determined by MIB
 - Indexes are selectable to some extent, to save bandwidth and memory when you want to only retrieve a small portion of a large table
 
-## Why not just using existing NetSNMP functionality? ##
+## Why not just using existing Net-SNMP functionality? ##
 In short: Because there's currently no such functionality for Python,
-neither in the upstream NetSNMP project, nor in any spin off or extension project (correct me if I'm wrong).
+neither in the upstream Net-SNMP project, nor in any spin off or extension project (correct me if I'm wrong).
 
 At the command line you've got the snmptable tool, and in the Perl extension there's Net::SNMP gettable.
 But in Python there's nothing but plain getnext/getbullk methods.
@@ -27,7 +27,7 @@ At the moment, I'm doing this project for my exercise and own usage.
 The interface is not stable enough to release anything, and some features
 are missing (e.g., support for SNMPv1 via getnext).
 
-From my point of view it would be great if the code could be merged into upstream NetSNMP package some time.
+From my point of view it would be great if the code could be merged into upstream Net-SNMP package some time.
 At least, this package was designed with that in mind, so merging would be very easy.
 The Python C extension reuses code and concepts from the
 [original Net-SNMP Python Bindings](http://net-snmp.sourceforge.net/wiki/index.php/Python_Bindings)
@@ -152,9 +152,24 @@ Results in
 ```
 
 ## Development Resources ##
-- NetSNMP [source code](http://sourceforge.net/p/net-snmp/code)
-- NetSNMP [library API](http://www.net-snmp.org/dev/agent/group__library.html)
+- Net-SNMP [source code](http://sourceforge.net/p/net-snmp/code)
+- Net-SNMP [library API](http://www.net-snmp.org/dev/agent/group__library.html)
 - Python C Extensions: [Python/C API Reference](https://docs.python.org/2/c-api/), [Example on python.org](https://docs.python.org/2/extending/extending.html) 
 - SMIv2 Table Syntax specification, [RFC 2578, Chapter 7.1.12 Conceptual Tables](https://tools.ietf.org/html/rfc2578#section-7.1.12)
 - SMIv2 INDEX clause specification, [RFC 2578, Chapter 7.7 Mapping of the INDEX clause](https://tools.ietf.org/html/rfc2578#section-7.7)
 - SNMP getbulk specification, [RFC 3416, Chapter 4.2.3 The GetBulkRequest-PDU](https://tools.ietf.org/html/rfc3416#section-4.2.3)
+
+## Related work ##
+Other people also tackle the hassle of dealing with SNMP in Python and found interesting approaches.
+Below is an incomplete and unordered list.
+
+### Libraries ###
+-[easysnmp](https://github.com/fgimian/easysnmp) - "Pythonic SNMP library based on the official Net-SNMP bindings".
+ Very nice approach to improve the original by sophisticated tests and more pythonic interface and design. 
+-[PySNMP](http://pysnmp.sourceforge.net) - Pure Python SNMP library, to act in Agent/Manager/Proxy role.
+-[snimpy](https://github.com/vincentbernat/snimpy) - Library on top of PySNMP. "Snimpy is aimed at being the more Pythonic possible. You should forget that you are doing SNMP requests."
+
+### Table handling ###
+-[HNMP](https://github.com/trehn/hnmp) - PySNMP based package, to "ease the pain of retrieving and processing data from SNMP-capable devices".
+ Let's you define table structures manually, rather than parsing them from MIB, because "Depending on MIB files would make the calling piece of code harder to distribute". 
+-[A Munin Plugin](https://raw.githubusercontent.com/munin-monitoring/contrib/master/plugins/snmp/snmp__airport), get's table via netsnmp.snmpwalk and converts it to a dictionary.
