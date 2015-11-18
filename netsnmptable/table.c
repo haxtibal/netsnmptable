@@ -27,6 +27,12 @@
 #define NO_FLAGS 0x00
 #define NON_LEAF_NAME 0x04
 
+struct table_tree_pointer {
+    struct tree *conceptual_table;
+    struct tree *conceptual_row;
+    struct tree *conceptual_column;
+};
+
 table_info_t* table_allocate(char* tablename) {
     table_info_t* table_info;
 
@@ -44,7 +50,6 @@ table_info_t* table_allocate(char* tablename) {
     }
 
     table_info->table_name = NULL;
-
     table_info->column_scheme.column = NULL;
     table_info->column_scheme.fields = 0;
     table_info->column_scheme.name_length = 0;
@@ -84,66 +89,117 @@ void reverse_fields(column_scheme_t* column_scheme) {
     }
 }
 
-/*
- * Table Syntax for SMIv2 is specified RFC 2578, 7.1.12. Conceptual Tables (https://tools.ietf.org/html/rfc2578#page-25).
- */
-int table_get_field_names(table_info_t* table_info) {
-    column_scheme_t* column_info = &table_info->column_scheme;
-    char *buf = NULL, *name_p = NULL;
-    size_t buf_len = 0, out_len = 0;
+/* Read the MIB to get conceptual table-, row- and column objects. */
+static void get_table_nodes(struct table_tree_pointer* tbl_tree, oid* table_oid, size_t oid_len) {
+    /* get the conceptual table object */
+    tbl_tree->conceptual_table = NULL;
+    tbl_tree->conceptual_row = NULL;
+    tbl_tree->conceptual_column = NULL;
 #ifndef NETSNMP_DISABLE_MIB_LOADING
-    struct tree *tbl = NULL;
-#endif /* NETSNMP_DISABLE_MIB_LOADING */
-    int going = 1;
-
-#ifndef NETSNMP_DISABLE_MIB_LOADING
-    tbl = get_tree(table_info->root, table_info->rootlen, get_tree_head());
-    DBPRTOID(D_DBG, "Table object: ", table_info->root, table_info->rootlen);
-    if (tbl) {
-        tbl = tbl->child_list;
-        if (tbl) {
-            /* If a table has child list, the childs are the entry objects (aka conceptual rows).
-             * Usually there is only one conceptual row. */
-            DBPRT(D_DBG, ("table has child list: table_info->root[%lu] = %lu\n", table_info->rootlen, tbl->subid)); DBPRTOID(D_DBG, "Entry object: ", table_info->root, table_info->rootlen);
-            table_info->root[table_info->rootlen++] = tbl->subid;
-            tbl = tbl->child_list;
+    tbl_tree->conceptual_table = get_tree(table_oid, oid_len, get_tree_head());
+    DBPRTOID(D_DBG, "Table object: ", table_oid, oid_len);
+    if (tbl_tree->conceptual_table) {
+        /* Children of a table object is a conceptual row object, also known as entry.
+         * There is only one conceptual row object, as RFC4181 states:
+         * 'The OID assigned to the conceptual row MUST be derived by appending a sub-identifier
+         *  of "1" to the OID assigned to the conceptual table.'
+         */
+        DBPRT(D_DBG, ("Conceptual table object found, sub id = %lu\n", tbl_tree->conceptual_table->subid));
+        tbl_tree->conceptual_row = tbl_tree->conceptual_table->child_list;
+        if (tbl_tree->conceptual_row) {
+            /* First children of conceptual row object is the first conceptual column object. */
+            DBPRT(D_DBG, ("Conceptual row object found, sub id  = %lu\n", tbl_tree->conceptual_row->subid));
+            tbl_tree->conceptual_column = tbl_tree->conceptual_row->child_list;
         } else {
-            /* table has no children, setting root[<lastsuboid>] to 1 */
-            DBPRTOID(D_DBG, "Table without entry object, assuming .1: ", table_info->root, table_info->rootlen);
-            table_info->root[table_info->rootlen++] = 1;
-            going = 0;
+            /* table has no conceptual rows */
+            DBPRT(D_DBG, "Table without entry object (will assume sub id .1)\n");
         }
     }
 #endif /* NETSNMP_DISABLE_MIB_LOADING */
+}
+
+/* Convert table (array of OIDs) to table name */
+static char* get_table_name(oid* table_oid, size_t oid_len) {
+    char *table_name = NULL, *buf = NULL;
+    size_t out_len = 0, buf_len = 0;
 
     if (sprint_realloc_objid((u_char **) &buf, &buf_len, &out_len, 1,
-            table_info->root, table_info->rootlen - 1)) {
-        table_info->table_name = buf;
+            table_oid, oid_len)) {
+        table_name = buf;
         buf = NULL;
         buf_len = out_len = 0;
     } else {
-        table_info->table_name = strdup("[TRUNCATED]");
+        table_name = strdup("[TRUNCATED]");
         out_len = 0;
-    } DBPRT(D_DBG, ("Tablename = %s\n", table_info->table_name));
+    }
+    return table_name;
+}
+
+/* Convert column (array of OIDs) to column name */
+static char* get_column_name(oid* column_oid, size_t oid_len) {
+    char *name_p = NULL, *buf = NULL;
+    size_t out_len = 0, buf_len = 0;
+
+    if (sprint_realloc_objid((u_char **) &buf, &buf_len, &out_len, 1,
+            column_oid, oid_len)) {
+        DBPRT(D_DBG, ("Full name of column OID: %s\n", buf));
+        name_p = strrchr(buf, '.');
+        if (name_p == NULL) {
+            name_p = strrchr(buf, ':');
+        }
+        if (name_p == NULL) {
+            name_p = buf;
+        } else {
+            name_p++;
+        }
+    } else {
+        return NULL;
+    }
+
+    if ('0' <= name_p[0] && name_p[0] <= '9') {
+        return NULL;
+    }
+    return name_p;
+}
+
+/*
+ * Get table structure information from MIB.
+ */
+int table_get_field_names(table_info_t* table_info) {
+    struct table_tree_pointer tbl_tree;
+    column_scheme_t* column_info = &table_info->column_scheme;
+    char *buf = NULL, *col_name = NULL;
+    int going = 1;
+
+    get_table_nodes(&tbl_tree, table_info->root, table_info->rootlen);
+    if (tbl_tree.conceptual_row->child_list) {
+        table_info->root[table_info->rootlen++] = tbl_tree.conceptual_row->subid;
+    } else {
+        table_info->root[table_info->rootlen++] = 1;
+        going = 0;
+    }
+
+    table_info->table_name = get_table_name(table_info->root, table_info->rootlen - 1);
+    DBPRT(D_DBG, ("Tablename = %s\n", table_info->table_name));
 
     /* now iterate trough column fields */
     column_info->fields = 0;
     while (going) {
         column_info->fields++;
 #ifndef NETSNMP_DISABLE_MIB_LOADING
-        if (tbl) {
-            if (tbl->access == MIB_ACCESS_NOACCESS) {
+        if (tbl_tree.conceptual_column) {
+            if (tbl_tree.conceptual_column->access == MIB_ACCESS_NOACCESS) {
                 DBPRT(D_DBG, ("Column with MAX-ACCESS = not-accessible found, skip it (maybe index field)\n"));
                 column_info->fields--;
-                tbl = tbl->next_peer;
-                if (!tbl) {
+                tbl_tree.conceptual_column = tbl_tree.conceptual_column->next_peer;
+                if (!tbl_tree.conceptual_column) {
                     going = 0;
                 }
                 continue;
-            } DBPRT(D_DBG, ("Column Found: table_info->root[%lu] = %lu\n", table_info->rootlen, tbl->subid));
-            table_info->root[table_info->rootlen] = tbl->subid; // store the subid temporarily (gets overwritten in next while iteration)
-            tbl = tbl->next_peer;
-            if (!tbl)
+            } DBPRT(D_DBG, ("Column Found: table_info->root[%lu] = %lu\n", table_info->rootlen, tbl_tree.conceptual_column->subid));
+            table_info->root[table_info->rootlen] = tbl_tree.conceptual_column->subid; // store the subid temporarily (gets overwritten in next while iteration)
+            tbl_tree.conceptual_column = tbl_tree.conceptual_column->next_peer;
+            if (!tbl_tree.conceptual_column)
                 going = 0;
         } else {
 #endif /* NETSNMP_DISABLE_MIB_LOADING */
@@ -153,27 +209,12 @@ int table_get_field_names(table_info_t* table_info) {
         }
 #endif /* NETSNMP_DISABLE_MIB_LOADING */
         DBPRTOID(D_DBG, "Column OID is: ", table_info->root, table_info->rootlen + 1);
-        out_len = 0;
-        if (sprint_realloc_objid((u_char **) &buf, &buf_len, &out_len, 1,
-                table_info->root, table_info->rootlen + 1)) {
-            DBPRT(D_DBG, ("Full name of column OID: %s\n", buf));
-            name_p = strrchr(buf, '.');
-            if (name_p == NULL) {
-                name_p = strrchr(buf, ':');
-            }
-            if (name_p == NULL) {
-                name_p = buf;
-            } else {
-                name_p++;
-            }
-        } else {
-            break;
-        }
-
-        if ('0' <= name_p[0] && name_p[0] <= '9') {
+        col_name = get_column_name(table_info->root, table_info->rootlen + 1);
+        if (!col_name) {
             column_info->fields--;
             break;
-        } DBPRT(D_DBG, ("Extracted column name is: %s\n", name_p));
+        }
+        DBPRT(D_DBG, ("Column name: %s\n", col_name));
 
         /* allocating and setting up the column header structs for each column*/
         if (column_info->fields == 1) {
@@ -185,8 +226,8 @@ int table_get_field_names(table_info_t* table_info) {
                     column_info->fields * sizeof(column_t));
         }
         column_info->column[column_info->fields - 1].py_label_str =
-                PyString_FromString(name_p);
-        DBPRT(D_DBG, ("column[fields - 1].py_label_str = %s\n", name_p));
+                PyString_FromString(col_name);
+        DBPRT(D_DBG, ("column[fields - 1].py_label_str = %s\n", col_name));
         column_info->column[column_info->fields - 1].subid =
                 table_info->root[table_info->rootlen];
     }
@@ -198,9 +239,9 @@ int table_get_field_names(table_info_t* table_info) {
         return FAILURE;
     }
 
-    if (name_p) {
+    if (col_name) {
         /* At least one column was found in MIB. */
-        *name_p = 0;
+        *col_name = 0;
 
         /* copy over from the entry oid */
         memmove(column_info->name, table_info->root,
@@ -353,18 +394,17 @@ int response_err(netsnmp_pdu *response) {
     if (response->errstat == SNMP_ERR_NOSUCHNAME) {
         DBPRT(D_DBG, ("End of MIB\n"));
     } else {
-        fprintf(stderr, "Error in packet.\nReason: %s\n",
-                snmp_errstring(response->errstat));
+        DBPRT(D_DBG, ("Error in packet.\nReason: %s\n", snmp_errstring(response->errstat)));
         if (response->errstat == SNMP_ERR_NOSUCHNAME) {
-            fprintf(stderr, "The request for this object identifier failed: ");
+            DBPRT(D_DBG, "The request for this object identifier failed: ");
             for (count = 1, vars = response->variables;
                     vars && count != response->errindex;
                     vars = vars->next_variable, count++)
                 /*EMPTY*/;
             if (vars) {
-                fprint_objid(stderr, vars->name, vars->name_length);
+                DBPRTOID(D_DBG, " ", vars->name, vars->name_length);
             }
-            fprintf(stderr, "\n");
+            DBPRT(D_DBG, "\n");
         }
         exitval = 2;
     }
@@ -456,6 +496,7 @@ PyObject* table_getbulk_sub_entries(table_info_t* table_info,
     for (col = 0; col < column_scheme->fields; col++) {
         column = &column_scheme->column[col];
         column->last_oid_len = column_scheme->name_length;
+        column->end = 0;
         memcpy(column->last_oid, column_scheme->name,
                 column_scheme->name_length * sizeof(oid));
         column->last_oid[column->last_oid_len++] = column->subid;

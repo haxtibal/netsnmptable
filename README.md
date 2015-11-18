@@ -155,9 +155,10 @@ Results in
 - Net-SNMP [source code](http://sourceforge.net/p/net-snmp/code)
 - Net-SNMP [library API](http://www.net-snmp.org/dev/agent/group__library.html)
 - Python C Extensions: [Python/C API Reference](https://docs.python.org/2/c-api/), [Example on python.org](https://docs.python.org/2/extending/extending.html) 
-- SMIv2 Table Syntax specification, [RFC 2578, Chapter 7.1.12 Conceptual Tables](https://tools.ietf.org/html/rfc2578#section-7.1.12)
-- SMIv2 INDEX clause specification, [RFC 2578, Chapter 7.7 Mapping of the INDEX clause](https://tools.ietf.org/html/rfc2578#section-7.7)
-- SNMP getbulk specification, [RFC 3416, Chapter 4.2.3 The GetBulkRequest-PDU](https://tools.ietf.org/html/rfc3416#section-4.2.3)
+- SMIv2 Conceptual Table definitions, [RFC 2578 Chapter 7.1.12 and 7.1.12.1](https://tools.ietf.org/html/rfc2578#section-7.1.12)
+- SMIv2 Conceptual Table indexing rules, [RFC 2578 Chapter 7.7, 7.8, and 7.8.1](https://tools.ietf.org/html/rfc2578#section-7.7)
+- SMIv2 Conceptual Row sub-identifier (also known as Entry), [RFC 4181 Chapter 4.6.5](https://tools.ietf.org/html/rfc4181#section-4.6.5)
+- SNMP GetBulkRequest-PDU specification, [RFC 3416 Chapter 4.2.3](https://tools.ietf.org/html/rfc3416#section-4.2.3)
 
 ## Related work ##
 Other people also tackle the hassle of dealing with SNMP in Python and found interesting approaches.
@@ -167,6 +168,7 @@ Below is an incomplete and unordered list.
 - [easysnmp](https://github.com/fgimian/easysnmp) - "Pythonic SNMP library based on the official Net-SNMP bindings". Very nice approach to improve the original by sophisticated tests and more pythonic interface and design. 
 - [PySNMP](http://pysnmp.sourceforge.net) - Pure Python SNMP library, to act in Agent/Manager/Proxy role.
 - [snimpy](https://github.com/vincentbernat/snimpy) - Library on top of PySNMP. "Snimpy is aimed at being the more Pythonic possible. You should forget that you are doing SNMP requests."
+- [Net::SNMP](http://search.cpan.org/~dtown/Net-SNMP-v6.0.1/) - Object oriented Perl interface to Net-SNMP with [table handling](http://search.cpan.org/~dtown/Net-SNMP-v6.0.1/lib/Net/SNMP.pm#get_table%28%29_-_retrieve_a_table_from_the_remote_agent)
 
 ### Table handling ###
 - [HNMP](https://github.com/trehn/hnmp) - PySNMP based package, to "ease the pain of retrieving and processing data from SNMP-capable devices". Let's you define table structures manually, rather than parsing them from MIB, because "Depending on MIB files would make the calling piece of code harder to distribute". 
