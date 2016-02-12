@@ -2,38 +2,21 @@
 *A Python C Extension package to query SNMP tables and table subsets, complementing the original Net-SNMP Python Bindings.*
 
 ## Goals ##
-This project aims to implement SNMP table query functionality for Python using the Net-SNMP libraries, with features as:
-- High-level, easy to use Python interface
+The project aims to complement the Python netsnmp package with SNMP table query functionality:
+- High-level Python interface
 - Resulting data structures behave like tables, in the sense that a cell is addressable by row and column
-- Table structure is determined by MIB
+- Table structure can be defined from MIB
 - Indexes are selectable to some extent, to save bandwidth and memory when you want to only retrieve a small portion of a large table
 
-## Why not just using existing Net-SNMP functionality? ##
-In short: Because there's currently no such functionality for Python,
-neither in the upstream Net-SNMP project, nor in any spin off or extension project (correct me if I'm wrong).
-
-At the command line you've got the snmptable tool, and in the Perl extension there's Net::SNMP gettable.
-But in Python there's nothing but plain getnext/getbullk methods.
-
-So, up to now you may either to do something like subprocess.call(["snmptable", ...]),
-or write a table handler using netsnmp.Session.getbulk() in pure Python.
-But both ways you're technically limited. For example, if using netsnmp.Session.getbulk() you'll miss get_table()
-in the bindings, so you can't parse a MIB and detect the column OIDs.
-Or, if using subprocess (probably calling snmptranslate + snmpbulkget, or snmptable) you need to do a lot of
-string parsing which may get inefficient and error prone.
-
 ## Current state and future ##
-At the moment, I'm doing this project for my exercise and own usage.
-The interface is not stable enough to release anything, and some features
-are missing (e.g., support for SNMPv1 via getnext).
+The API is currently not yet stable.
 
-From my point of view it would be great if the code could be merged into upstream Net-SNMP package some time.
-At least, this package was designed with that in mind, so merging would be very easy.
-The Python C extension reuses code and concepts from the
-[original Net-SNMP Python Bindings](http://net-snmp.sourceforge.net/wiki/index.php/Python_Bindings)
-as far as possible. Table handling was initially taken from netsnmp/apps/snmptable.c.
+IMO it would be good to eventually integrate the table functions into a more complete, all-in-one Python SNMP Client package.
+If you are the maintainer of such a package and like the idea, please let me know.
 
-## How does it actually work? ##
+I currently do monkey patching of the [original Net-SNMP Python Bindings](http://net-snmp.sourceforge.net/wiki/index.php/Python_Bindings) to fake that integration, but are looking forward for better options.
+
+## Examples ##
 Here are some examples how to use netsnmptable.
 
 ### Example 1: Print out the Host Resources Storage Table###
@@ -42,10 +25,8 @@ import netsnmp
 import netsnmptable
 
 # create a table object
-table = netsnmptable.Table(netsnmp.Session(Version=2,
-            DestHost='localhost',
-            Community='public'))
-table.parse_mib(netsnmp.Varbind('HOST-RESOURCES-MIB:hrStorageTable', 0))
+session = netsnmp.Session(Version=2, DestHost='localhost', Community='public')
+table = session.table_from_mib('HOST-RESOURCES-MIB:hrStorageTable')
 
 # go and get the table...
 tbldict = table.fetch()
@@ -108,10 +89,8 @@ def varbind_to_repr(self):
     return self.type + ":" + self.val
 netsnmp.Varbind.__repr__ = MethodType(varbind_to_repr, None, netsnmp.Varbind)
 
-table = netsnmptable.Table(netsnmp.Session(Version=2,
-            DestHost='localhost',
-            Community='public'))
-table.parse_mib(netsnmp.Varbind('MYTABLETEST::testTable', 0))
+session = netsnmp.Session(Version=2, DestHost='localhost', Community='public')
+table = session.table_from_mib('MYTABLETEST::testTable')
 tbldict = table.fetch()
 pprint.pprint(tbldict)
 ```
@@ -135,10 +114,8 @@ This gives
 ### Example 3: Query a multi-indexed table with only selected index values ###
 Say we want to fetch from the same table, but only entries for "OuterIdx_2".
 ```python
-table = netsnmptable.Table(netsnmp.Session(Version=2,
-            DestHost='localhost',
-            Community='public'))
-table.parse_mib(netsnmp.Varbind('MYTABLETEST::testTable', 0))
+session = netsnmp.Session(Version=2, DestHost='localhost', Community='public')
+table = session.table_from_mib('MYTABLETEST::testTable')
 tbldict = table.fetch(iid = netsnmptable.str_to_varlen_iid("OuterIdx_2"))
 pprint.pprint(tbldict)
 ```
@@ -168,7 +145,8 @@ Below is an incomplete and unordered list.
 - [easysnmp](https://github.com/fgimian/easysnmp) - "Pythonic SNMP library based on the official Net-SNMP bindings". Very nice approach to improve the original by sophisticated tests and more pythonic interface and design. 
 - [PySNMP](http://pysnmp.sourceforge.net) - Pure Python SNMP library, to act in Agent/Manager/Proxy role.
 - [snimpy](https://github.com/vincentbernat/snimpy) - Library on top of PySNMP. "Snimpy is aimed at being the more Pythonic possible. You should forget that you are doing SNMP requests."
-- [Net::SNMP](http://search.cpan.org/~dtown/Net-SNMP-v6.0.1/) - Object oriented Perl interface to Net-SNMP with [table handling](http://search.cpan.org/~dtown/Net-SNMP-v6.0.1/lib/Net/SNMP.pm#get_table%28%29_-_retrieve_a_table_from_the_remote_agent)
+- [Net::SNMP](http://search.cpan.org/~dtown/Net-SNMP-v6.0.1/) - Object oriented Perl interface to Net-SNMP with [table handling](http://search.cpan.org/~dtown/Net-SNMP-v6.0.1/lib/Net/SNMP.pm#get_table%28%29_-_retrieve_a_table_from_the_remote_agent).
+- [Multi-core SNMP](https://code.google.com/p/multicore-snmp) Works around lacking asynchronous support in original Python Bindings by using a process pool.
 
 ### Table handling ###
 - [HNMP](https://github.com/trehn/hnmp) - PySNMP based package, to "ease the pain of retrieving and processing data from SNMP-capable devices". Let's you define table structures manually, rather than parsing them from MIB, because "Depending on MIB files would make the calling piece of code harder to distribute". 

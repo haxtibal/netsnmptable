@@ -1,6 +1,12 @@
 import netsnmp
 import interface
 
+def create_from_mib(self, conceptual_table_name):
+    """Create a table query object from MIB definition."""
+    table = Table(self)
+    table._parse_mib(netsnmp.Varbind(conceptual_table_name, 0))
+    return table
+
 class Table(object):
     def __init__(self, session):
         self.max_repeaters = 10
@@ -9,16 +15,6 @@ class Table(object):
         self.columns = []
         self.netsnmp_session = session
         self._tbl_ptr = None
-
-    def parse_mib(self, varbind):
-        """Determine the table structure by parsing the MIB.
-        After a successful run, table headers are available in indexes and columns dictionary.
-        """
-        tbl_ptr = interface.table_parse_mib(self, varbind) #, self.indexes, self.columns)
-        if (tbl_ptr):
-            if self._tbl_ptr:
-                interface.table_cleanup()
-            self._tbl_ptr = tbl_ptr
 
     def fetch(self, iid=None, max_repeaters=10):
         """Fetch a SNMP table, or parts of a table.
@@ -66,3 +62,13 @@ def str_to_fixlen_iid(index_str):
     Returns: List of integers
     """
     return + [ord(element) for element in list(index_str)]
+
+def _parse_mib(self, varbind):
+    """Determine the table structure by parsing the MIB.
+    After a successful run, table headers are available in indexes and columns dictionary.
+    """
+    tbl_ptr = interface.table_parse_mib(self, varbind) #, self.indexes, self.columns)
+    if (tbl_ptr):
+        if self._tbl_ptr:
+            interface.table_cleanup()
+        self._tbl_ptr = tbl_ptr
