@@ -46,6 +46,16 @@ class Table(object):
         res = interface.table_fetch(self, iid)
         return res
 
+    def _parse_mib(self, varbind):
+        """Determine the table structure by parsing the MIB.
+        After a successful run, table headers are available in indexes and columns dictionary.
+        """
+        tbl_ptr = interface.table_parse_mib(self, varbind) #, self.indexes, self.columns)
+        if (tbl_ptr):
+            if self._tbl_ptr:
+                interface.table_cleanup()
+            self._tbl_ptr = tbl_ptr
+
     def __del__(self):
         interface.table_cleanup(self._tbl_ptr)
 
@@ -63,12 +73,3 @@ def str_to_fixlen_iid(index_str):
     """
     return + [ord(element) for element in list(index_str)]
 
-def _parse_mib(self, varbind):
-    """Determine the table structure by parsing the MIB.
-    After a successful run, table headers are available in indexes and columns dictionary.
-    """
-    tbl_ptr = interface.table_parse_mib(self, varbind) #, self.indexes, self.columns)
-    if (tbl_ptr):
-        if self._tbl_ptr:
-            interface.table_cleanup()
-        self._tbl_ptr = tbl_ptr
