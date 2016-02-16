@@ -1,14 +1,66 @@
 """ Runs all unit tests for the netsnmptable package.   """
 
-import testagent
+import inspect
 import netsnmp
 import netsnmptable
 import os
 import pprint
 import sys
+import testagent
 import time
+import thread
 import unittest
 from types import MethodType
+
+# I don't know why configure only works here, if it is executed outside of unittest.TestCase
+os.environ['MIBDIRS'] = os.path.dirname(os.path.abspath(__file__))
+testagent.configure(agent_address = "localhost:1234",
+    rocommunity='public', rwcommunity='private')
+
+def setup_oids():
+    singleIdxTable = testagent.Table(
+        oidstr = "TEST-MIB::singleIdxTable",
+        indexes = [
+            testagent.DisplayString()
+        ],
+        columns = [
+            (2, testagent.DisplayString("")),
+            (3, testagent.Integer32(0))
+        ],
+    )
+    singleIdxTableRow1 = singleIdxTable.addRow([testagent.DisplayString("ThisIsRow1")])
+    singleIdxTableRow1.setRowCell(2, testagent.DisplayString("ContentOfRow1_Cell1"))
+    singleIdxTableRow1.setRowCell(3, testagent.Integer32(1))
+    singleIdxTableRow2 = singleIdxTable.addRow([testagent.DisplayString("ThisIsRow2")])
+    singleIdxTableRow2.setRowCell(2, testagent.DisplayString("ContentOfRow2_Cell1"))
+    singleIdxTableRow2.setRowCell(3, testagent.Integer32(2))
+    singleIdxTableRow3 = singleIdxTable.addRow([testagent.DisplayString("ThisIsRow3")])
+    singleIdxTableRow3.setRowCell(2, testagent.DisplayString("ContentOfRow3_Cell1"))
+    singleIdxTableRow3.setRowCell(3, testagent.Integer32(3))
+
+    multiIdxTable = testagent.Table(
+        oidstr = "TEST-MIB::multiIdxTable",
+        indexes = [
+            testagent.DisplayString(),
+            testagent.Integer32(),
+        ],
+        columns = [
+            (3, testagent.DisplayString("")),
+            (4, testagent.Integer32(0))
+        ],
+    )
+    multiIdxTableRow1 = multiIdxTable.addRow([testagent.DisplayString("ThisIsRow1"), testagent.Integer32(1)])
+    multiIdxTableRow1.setRowCell(3, testagent.DisplayString("ContentOfRow1.1_Cell1"))
+    multiIdxTableRow1.setRowCell(4, testagent.Integer32(1))
+    multiIdxTableRow2 = multiIdxTable.addRow([testagent.DisplayString("ThisIsRow1"), testagent.Integer32(2)])
+    multiIdxTableRow2.setRowCell(3, testagent.DisplayString("ContentOfRow1.2_Cell1"))
+    multiIdxTableRow2.setRowCell(4, testagent.Integer32(2))
+    multiIdxTableRow3 = multiIdxTable.addRow([testagent.DisplayString("ThisIsRow2"), testagent.Integer32(1)])
+    multiIdxTableRow3.setRowCell(3, testagent.DisplayString("ContentOfRow2.1_Cell1"))
+    multiIdxTableRow3.setRowCell(4, testagent.Integer32(3))
+    multiIdxTableRow3 = multiIdxTable.addRow([testagent.DisplayString("ThisIsRow2"), testagent.Integer32(2)])
+    multiIdxTableRow3.setRowCell(3, testagent.DisplayString("ContentOfRow2.2_Cell1"))
+    multiIdxTableRow3.setRowCell(4, testagent.Integer32(4))
 
 def varbind_to_repr(self):
     """Can be dynamically added to Varbind objects, for nice pprint output"""
@@ -17,31 +69,7 @@ def varbind_to_repr(self):
 class BasicTests(unittest.TestCase):
     @classmethod
     def setUpClass(cls):
-        mib_path = os.path.join(os.path.abspath(os.path.dirname(sys.argv[0])), "netsnmptable/tests/SIMPLE-MIB.txt")
-        os.environ['MIBS'] = 'SIMPLE-MIB'
-        os.environ['MIBDIRS'] = mib_path
-        testagent.configure(agent_address = "localhost:1234", MIBFiles = [mib_path],
-            rocommunity='public', rwcommunity='private')
-
-        firstTable = testagent.Table(
-        	oidstr = "SIMPLE-MIB::firstTable",
-        	indexes = [
-        		testagent.DisplayString()
-        	],
-        	columns = [
-        		(2, testagent.DisplayString("Unknown place")),
-        		(3, testagent.Integer32(0))
-        	],
-        )
-        firstTableRow1 = firstTable.addRow([testagent.DisplayString("aa")])
-        firstTableRow1.setRowCell(2, testagent.DisplayString("Prague"))
-        firstTableRow1.setRowCell(3, testagent.Integer32(20))
-        firstTableRow2 = firstTable.addRow([testagent.DisplayString("ab")])
-        firstTableRow2.setRowCell(2, testagent.DisplayString("Barcelona"))
-        firstTableRow2.setRowCell(3, testagent.Integer32(28))
-        firstTableRow3 = firstTable.addRow([testagent.DisplayString("bb")])
-        firstTableRow3.setRowCell(3, testagent.Integer32(18))
-
+        setup_oids()
         testagent.start_server()
 
     @classmethod
@@ -51,18 +79,42 @@ class BasicTests(unittest.TestCase):
     def __init__(self, *args, **kwargs):
         super(BasicTests, self).__init__(*args, **kwargs)
         netsnmp.Varbind.__repr__ = MethodType(varbind_to_repr, None, netsnmp.Varbind)
-        self.netsnmp_session = netsnmp.Session(Version=2, DestHost='localhost', RemotePort=1234, Community='public')
+        self.netsnmp_session = netsnmp.Session(Version=2, DestHost='localhost:1234', Community='public')
 
-    def test_host_resources(self):
-        table = self.netsnmp_session.table_from_mib('SIMPLE-MIB::firstTable')
+    def test_singleIdxTable(self):
+        table = self.netsnmp_session.table_from_mib('TEST-MIB::singleIdxTable')
         tbldict = table.fetch()
-        self.assertEqual(self.netsnmp_session.ErrorStr, "", msg="Error during SNMP request: %s" % self.netsnmp_session.ErrorStr)
+        self.assertEqual(self.netsnmp_session.ErrorStr,
+            "",
+            msg="Error during SNMP request: %s" % self.netsnmp_session.ErrorStr
+            )
+        self.assertEqual(self.netsnmp_session.ErrorNum, 0)
+        self.assertEqual(self.netsnmp_session.ErrorInd, 0)
+        self.assertIsNotNone(tbldict)
+        self.assertIsNotNone(tbldict.get(('ThisIsRow1',)))
+        self.assertIsNotNone(tbldict.get(('ThisIsRow2',)))
+        self.assertIsNotNone(tbldict.get(('ThisIsRow3',)))
+        self.assertEqual(tbldict[('ThisIsRow1',)].get('singleIdxTableEntryDesc').val, "ContentOfRow1_Cell1")
+        self.assertEqual(tbldict[('ThisIsRow1',)].get('singleIdxTableEntryValue').val, "1")
+        self.assertEqual(tbldict[('ThisIsRow2',)].get('singleIdxTableEntryDesc').val, "ContentOfRow2_Cell1")
+        self.assertEqual(tbldict[('ThisIsRow2',)].get('singleIdxTableEntryValue').val, "2")
+        self.assertEqual(tbldict[('ThisIsRow3',)].get('singleIdxTableEntryDesc').val, "ContentOfRow3_Cell1")
+        self.assertEqual(tbldict[('ThisIsRow3',)].get('singleIdxTableEntryValue').val, "3")
+        pprint.pprint(tbldict)
+
+    def test_multiIdxTable(self):
+        table = self.netsnmp_session.table_from_mib('TEST-MIB::multiIdxTable')
+        tbldict = table.fetch()
+        self.assertEqual(self.netsnmp_session.ErrorStr,
+            "",
+            msg="Error during SNMP request: %s" % self.netsnmp_session.ErrorStr
+            )
         self.assertEqual(self.netsnmp_session.ErrorNum, 0)
         self.assertEqual(self.netsnmp_session.ErrorInd, 0)
         self.assertIsNotNone(tbldict)
         pprint.pprint(tbldict)
 
-#deactivated for now, as test mib is not available
+#deactivated for now, as required mibs are not included in package
 class PrivateMibTests():
     def __init__(self, *args, **kwargs):
         super(BasicTests, self).__init__(*args, **kwargs)

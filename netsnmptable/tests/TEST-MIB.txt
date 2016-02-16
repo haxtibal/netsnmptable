@@ -1,0 +1,148 @@
+TEST-MIB DEFINITIONS ::= BEGIN
+
+-- Imports
+IMPORTS
+    MODULE-IDENTITY, OBJECT-TYPE, NOTIFICATION-TYPE,
+    Integer32, Unsigned32, Counter32, Counter64, TimeTicks, IpAddress,
+    enterprises, private
+        FROM SNMPv2-SMI
+    TEXTUAL-CONVENTION, DisplayString
+        FROM SNMPv2-TC
+    MODULE-COMPLIANCE, OBJECT-GROUP, NOTIFICATION-GROUP
+        FROM SNMPv2-CONF;
+
+tableTestMIB MODULE-IDENTITY
+    LAST-UPDATED "201602160000Z"
+    ORGANIZATION "N/A"
+    CONTACT-INFO
+        "Refer to project page for contact information."
+    DESCRIPTION
+        "Uncontrolled MIB to support test cases of netsnmptable package."
+    ::= { private 99999 }
+
+MIBObjects         OBJECT IDENTIFIER ::= { tableTestMIB 1 }
+MIBConformance     OBJECT IDENTIFIER ::= { tableTestMIB 2 }
+
+testTables             OBJECT IDENTIFIER ::= { MIBObjects 1 }
+
+singleIdxTable OBJECT-TYPE
+    SYNTAX      SEQUENCE OF singleIdxTableEntry
+    MAX-ACCESS  not-accessible
+    STATUS      current
+    DESCRIPTION
+        "Conceptual table node of singleIdxTable"
+    ::= { testTables 1 }
+
+singleIdxTableEntry ::=
+    SEQUENCE {
+        singleIdxTableEntryIndex  DisplayString,
+        singleIdxTableEntryDesc   DisplayString,
+        singleIdxTableEntryValue  Integer32
+    }
+
+singleIdxTableEntry OBJECT-TYPE
+    SYNTAX      singleIdxTableEntry
+    MAX-ACCESS  not-accessible
+    STATUS      current
+    DESCRIPTION
+        "Conceptual row node of singleIdxTable."
+    INDEX { singleIdxTableEntryIndex }
+    ::= { singleIdxTable 1 }
+
+singleIdxTableEntryIndex OBJECT-TYPE
+    SYNTAX      DisplayString
+    MAX-ACCESS  not-accessible
+    STATUS      current
+    DESCRIPTION
+        "The index column used to generate string indices into singleIdxTable."
+    ::= { singleIdxTableEntry 1 }
+
+singleIdxTableEntryDesc OBJECT-TYPE
+    SYNTAX      DisplayString
+    MAX-ACCESS  read-only
+    STATUS      current
+    DESCRIPTION
+        "A singleIdxTableEntry's description."
+    ::= { singleIdxTableEntry 2 }
+
+singleIdxTableEntryValue OBJECT-TYPE
+    SYNTAX      Integer32
+    MAX-ACCESS  read-only
+    STATUS      current
+    DESCRIPTION
+        "A singleIdxTableEntry's value."
+    ::= { singleIdxTableEntry 3 }
+
+multiIdxTable OBJECT-TYPE
+    SYNTAX      SEQUENCE OF multiIdxTableEntry
+    MAX-ACCESS  not-accessible
+    STATUS      current
+    DESCRIPTION
+        "Conceptual table node of multiIdxTable"
+    ::= { testTables 2 }
+
+multiIdxTableEntry ::=
+    SEQUENCE {
+        multiIdxTableEntryIndex1  DisplayString,
+        multiIdxTableEntryIndex2  Integer32,
+        multiIdxTableEntryDesc    DisplayString,
+        multiIdxTableEntryValue   Integer32
+    }
+
+multiIdxTableEntry OBJECT-TYPE
+    SYNTAX      multiIdxTableEntry
+    MAX-ACCESS  not-accessible
+    STATUS      current
+    DESCRIPTION
+        "Conceptual row node of multiIdxTable."
+    INDEX { multiIdxTableEntryIndex }
+    ::= { multiIdxTable 1 }
+
+multiIdxTableEntryIndex1 OBJECT-TYPE
+    SYNTAX      DisplayString
+    MAX-ACCESS  not-accessible
+    STATUS      current
+    DESCRIPTION
+        "The 1st index column used to generate string indices into multiIdxTable."
+    ::= { multiIdxTableEntry 1 }
+
+multiIdxTableEntryIndex2 OBJECT-TYPE
+    SYNTAX      Integer32
+    MAX-ACCESS  not-accessible
+    STATUS      current
+    DESCRIPTION
+        "The 2nd index column used to generate integer indices into multiIdxTable."
+    ::= { multiIdxTableEntry 2 }
+
+multiIdxTableEntryDesc OBJECT-TYPE
+    SYNTAX      DisplayString
+    MAX-ACCESS  read-only
+    STATUS      current
+    DESCRIPTION
+        "A multiIdxTableEntry's description."
+    ::= { multiIdxTableEntry 3 }
+
+multiIdxTableEntryValue OBJECT-TYPE
+    SYNTAX      Integer32
+    MAX-ACCESS  read-only
+    STATUS      current
+    DESCRIPTION
+        "A multiIdxTableEntry's value."
+    ::= { multiIdxTableEntry 4 }
+
+tableTestMIBGroups      OBJECT IDENTIFIER ::= { MIBConformance 1 }
+
+tableTestMIBTablesGroup OBJECT-GROUP
+    OBJECTS {
+        singleIdxTableEntryDesc,
+        singleIdxTableEntryValue,
+        multiIdxTableEntryDesc,
+        multiIdxTableEntryValue
+    }
+    STATUS  current
+    DESCRIPTION
+        "A collection of objects related to testTables."
+    ::= { tableTestMIBGroups 2 }
+
+
+END

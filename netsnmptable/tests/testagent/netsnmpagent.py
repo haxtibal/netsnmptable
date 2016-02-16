@@ -129,7 +129,10 @@ class netsnmpAgent(object):
 			# become a pointer to a "snmp_log_message" C structure (passed by
 			# net-snmp's log_handler_callback() in snmplib/snmp_logging.c) while
 			# "clientarg" will be None (see the registration code below).
-			logmsg = ctypes.cast(serverarg, snmp_log_message_p)
+			try:
+				logmsg = ctypes.cast(serverarg, snmp_log_message_p)
+			except:
+				return 0
 
 			# Generate textual description of priority level
 			priorities = {
