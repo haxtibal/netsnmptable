@@ -23,6 +23,19 @@ If you are the maintainer of such a package and like the idea, please let me kno
 
 I currently do monkey patching of the [original Net-SNMP Python Bindings](http://net-snmp.sourceforge.net/wiki/index.php/Python_Bindings) to fake that integration, but are looking forward for better options.
 
+## How to build and install ##
+
+Prerequisites:
+- C compiler toolchain
+- Python 2
+- Net-SNMP libraries and headers
+
+Download and extract the source package, then
+```shell
+~/netsnmptable$ python setup.py build
+~/netsnmptable$ sudo python setup.py install
+```
+
 ## Examples ##
 Here are some examples how to use netsnmptable.
 
