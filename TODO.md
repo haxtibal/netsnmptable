@@ -1,7 +1,5 @@
 # TODO #
 
-## ##
-
 ## Refactor API ##
 
 ### Avoid passing netsnmp.Session to Table ###
@@ -69,6 +67,44 @@ my ($session, $error) = Net::SNMP->session(
 my $result = $session->get_table(-baseoid => $OID_ifTable))
 ```
 
+### How to represent SNMP types in Python ###
+Example: Query a INTEGER32 variable with value 1. In Python, shall the return value be int(1) or str("1")?
+
+netsnmp bindings Varbind handling:
+- [Varbind.__init__()](https://sourceforge.net/p/net-snmp/code/ci/master/tree/python/netsnmp/client.py#l52) converts every initialization argument into a string object.
+- [netsnmp_get()](https://sourceforge.net/p/net-snmp/code/ci/master/tree/python/netsnmp/client_intf.c#l1597) saves the 'val' attribute as string
+- UseSprintValue = <non-zero> means "certain data types being returned in non-canonical format"
+- __translate_appl_type() turns 'INTEGER32' into TYPE_INTEGER32
+- __add_var_val_str() converts string to long ```*(vars->val.integer) = strtol(val,NULL,0);```
+
+README says "for set operations the <val> format must be canonical to ensure unambiguous translation.",
+and defines canonical forms as
+- OBJECTID => dotted-decimal (e.g., .1.3.6.1.2.1.1.1)
+- OCTETSTR => perl scalar containing octets
+- INTEGER => decimal signed integer (or enum)
+- NETADDR => dotted-decimal
+- IPADDR => dotted-decimal
+- COUNTER => decimal unsigned integer
+- COUNTER64 => decimal unsigned integer
+- GAUGE => decimal unsigned integer
+- UINTEGER => decimal unsigned integer
+- TICKS  => decimal unsigned integer
+- OPAQUE => perl scalar containing octets
+- NULL => perl scalar containing nothing
+This is obviously not fully finished, as there are no "perl scalars" in python.
+
+A test shows that INTEGER32 is given as str type.
+```python
+import os
+import netsnmp
+netsnmp_session = netsnmp.Session(Version=2, DestHost='localhost:1234', Community='public')
+netsnmp_session.UseSprintValue=0
+vl = netsnmp.VarList(netsnmp.Varbind('TEST-MIB::singleIdxTableEntryValue', '10.84.104.105.115.73.115.82.111.119.49'))
+result = netsnmp_session.get(vl)
+print(type(vl[0].val))
+ <type 'str'>
+```
+
 ## Re-use existing getbulk implementation? ##
 Maybe [netsnmp_getbulk](http://sourceforge.net/p/net-snmp/code/ci/master/tree/python/netsnmp/client_intf.c#l2207) could be reused somehow.
 
@@ -114,3 +150,14 @@ This code-part shows why:
 
 ## Shift some table-handing to pure Python? ##
 With a suitable getbulk C-implementation, a good amount of the table handling could be shifted from C to pure python...
+
+## What's going on with the python bindings? ##
+This are the current [netsnmp developers](https://sourceforge.net/p/net-snmp/_members).
+
+Recently from the mailing list
+- https://sourceforge.net/p/net-snmp/mailman/message/21556905/
+- https://sourceforge.net/p/net-snmp/mailman/message/34742260/
+- https://sourceforge.net/p/net-snmp/mailman/message/32049411/
+
+Recent changes:
+- https://sourceforge.net/p/net-snmp/code/ci/99f836007fd823014b0efb037a6e707b56807ffb

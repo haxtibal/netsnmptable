@@ -16,8 +16,8 @@ class Table(object):
         self.netsnmp_session = session
         self._tbl_ptr = None
 
-    def fetch(self, iid=None, max_repeaters=10):
-        """Fetch a SNMP table, or parts of a table.
+    def get_entries(self, iid=None, max_repeaters=10):
+        """Get entries from a SNMP table, or parts of a table.
 
         All information required to query a table is taken from MIB.
         Required MIB files need to be present on your system.

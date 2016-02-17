@@ -95,7 +95,7 @@ multiIdxTableEntry OBJECT-TYPE
     STATUS      current
     DESCRIPTION
         "Conceptual row node of multiIdxTable."
-    INDEX { multiIdxTableEntryIndex }
+    INDEX { multiIdxTableEntryIndex1, multiIdxTableEntryIndex2 }
     ::= { multiIdxTable 1 }
 
 multiIdxTableEntryIndex1 OBJECT-TYPE

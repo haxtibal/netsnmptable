@@ -1,15 +1,22 @@
 # netsnmptable #
-*A Python C Extension package to query SNMP tables and table subsets, complementing the original Net-SNMP Python Bindings.*
+*A Python C Extension package to query SNMP tables and table subsets based on Net-SNMP libraries.*
 
 ## Goals ##
-The project aims to complement the Python netsnmp package with SNMP table query functionality:
+The project aims to bring SNMP table query functionality for Python.
+- Based on the native Net-SNMP libraries
 - High-level Python interface
 - Resulting data structures behave like tables, in the sense that a cell is addressable by row and column
 - Table structure can be defined from MIB
 - Indexes are selectable to some extent, to save bandwidth and memory when you want to only retrieve a small portion of a large table
+- Include a unit test solution that does not depend on external services
+- Focus on table functions only, don't re-implement other manager functionality
+- Eventually find a parent-project that will integrate this package. Implementation concepts and coding conventions from the parent project can be adapted.
 
 ## Current state and future ##
-The API is currently not yet stable.
+The API is currently not yet stable. Implementation works and is tested on following targets
+- Linux x86_64
+ - Debian Wheezy, python 2.7.3, netsnmp 5.4.3
+ - Ubuntu Wily, python 2.7.9, netsnmp 5.7.3
 
 IMO it would be good to eventually integrate the table functions into a more complete, all-in-one Python SNMP Client package.
 If you are the maintainer of such a package and like the idea, please let me know.
@@ -29,7 +36,7 @@ session = netsnmp.Session(Version=2, DestHost='localhost', Community='public')
 table = session.table_from_mib('HOST-RESOURCES-MIB:hrStorageTable')
 
 # go and get the table...
-tbldict = table.fetch()
+tbldict = table.get_entries()
 if (self.netsnmp_session.ErrorNum):
     print("Can't query HOST-RESOURCES-MIB:hrStorageTable.")
     exit(-1)
@@ -91,7 +98,7 @@ netsnmp.Varbind.__repr__ = MethodType(varbind_to_repr, None, netsnmp.Varbind)
 
 session = netsnmp.Session(Version=2, DestHost='localhost', Community='public')
 table = session.table_from_mib('MYTABLETEST::testTable')
-tbldict = table.fetch()
+tbldict = table.get_entries()
 pprint.pprint(tbldict)
 ```
 
@@ -116,7 +123,7 @@ Say we want to fetch from the same table, but only entries for "OuterIdx_2".
 ```python
 session = netsnmp.Session(Version=2, DestHost='localhost', Community='public')
 table = session.table_from_mib('MYTABLETEST::testTable')
-tbldict = table.fetch(iid = netsnmptable.str_to_varlen_iid("OuterIdx_2"))
+tbldict = table.get_entries(iid = netsnmptable.str_to_varlen_iid("OuterIdx_2"))
 pprint.pprint(tbldict)
 ```
 
