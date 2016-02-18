@@ -6,11 +6,16 @@ import netsnmptable
 import os
 import pprint
 import sys
-import testagent
 import time
 import thread
 import unittest
 from types import MethodType
+
+try:
+    import testagent
+except ImportError:
+    print("No suitable testagent available, can't execute unit tests.")
+    raise
 
 # I don't know why configure only works here, if it is executed outside of unittest.TestCase
 os.environ['MIBDIRS'] = os.path.dirname(os.path.abspath(__file__))

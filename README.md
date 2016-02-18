@@ -36,6 +36,12 @@ Download and extract the source package, then
 ~/netsnmptable$ sudo python setup.py install
 ```
 
+## License ##
+
+This software is released under the LGPLv3 license.
+
+Some re-used code is copyrighted. See the [LICENSE](https://github.com/haxtibal/netsnmptable/blob/master/LICENSE) file for full license text and the original copyright notices.
+
 ## Examples ##
 Here are some examples how to use netsnmptable.
 
@@ -171,3 +177,6 @@ Below is an incomplete and unordered list.
 ### Table handling ###
 - [HNMP](https://github.com/trehn/hnmp) - PySNMP based package, to "ease the pain of retrieving and processing data from SNMP-capable devices". Let's you define table structures manually, rather than parsing them from MIB, because "Depending on MIB files would make the calling piece of code harder to distribute". 
 - [A Munin Plugin](https://raw.githubusercontent.com/munin-monitoring/contrib/master/plugins/snmp/snmp__airport), get's table via netsnmp.snmpwalk and converts it to a dictionary.
+
+### Other SNMP tools ###
+- [python-netsnmpagent](https://github.com/pief/python-netsnmpagent) - Let's you implement agents in Python (incorporates netsnmp via ctypes). Very useful for testing.

@@ -38,15 +38,14 @@ else:
     #netsnmp up to 5.4.4 uses traditional API session pointers, like ss = snmp_open(&session);
 
 setup(
-    name="netsnmptable", version="0.1.0",
+    name="netsnmptable", version="0.1.1",
     description = 'A Python package to query SNMP tables and table subsets, on top of the original Net-SNMP Python Bindings.',
     author = 'Tobias Deiminger',
     author_email = 'tobias.deiminger@gmail.com',
     url = 'http://github.com/haxtibal/netsnmptable',
-    license="BSD",
-    packages=find_packages(),
-    test_suite = "netsnmptable.tests.test",
-
+    license="LGPL",
+    packages=['netsnmptable'],
+    test_suite = "tests.test",
     ext_modules = [
        Extension("netsnmptable.interface", ["netsnmptable/interface.c", "netsnmptable/table.c", "netsnmptable/util.c"],
                  library_dirs=libdirs,

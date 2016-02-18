@@ -1,5 +1,5 @@
 import netsnmp
-import interface
+from . import interface
 
 def create_from_mib(self, conceptual_table_name):
     """Create a table query object from MIB definition."""

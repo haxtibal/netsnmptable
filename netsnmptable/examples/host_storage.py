@@ -3,15 +3,10 @@
 import netsnmp
 import netsnmptable
 
-table = netsnmptable.Table(netsnmp.Session(Version=2,
-            DestHost='localhost',
-            Community='public'))
+ns = netsnmp.Session(Version=2, DestHost='localhost', Community='public')
+table = ns.table_from_mib(netsnmp.Varbind('HOST-RESOURCES-MIB:hrStorageTable'))
+tbldict = table.get_entries()
 
-table.parse_mib(netsnmp.Varbind('HOST-RESOURCES-MIB:hrStorageTable', 0))
-
-table = netsnmptable.Table(self.netsnmp_session)
-table.parse_mib(netsnmp.Varbind('HOST-RESOURCES-MIB:hrStorageTable', 0))
-tbldict = table.fetch()
 if (self.netsnmp_session.ErrorNum):
     print("Can't query HOST-RESOURCES-MIB:hrStorageTable.")
     exit(-1)

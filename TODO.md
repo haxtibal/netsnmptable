@@ -162,6 +162,33 @@ Recently from the mailing list
 Recent changes:
 - https://sourceforge.net/p/net-snmp/code/ci/99f836007fd823014b0efb037a6e707b56807ffb
 
+## Licensing ##
+
+If possible, the package shall be licensed BSD like.
+
+Which work of other people is included?
+
+Inlcuded as code (or snippets)
+- table.c includes code from netsnmp, apps/snmptable.c
+ - Copyright 1997 Niels Baggesen
+- util.c includes code from netsnmp, python/netsnmp/client_intf.c
+ - file: no license or copyright
+ - directory: copyright (but no license) in python bindings: Copyright (c) 2006, ScienceLogic, LLC
+ - package: netsnmp contains a top level COPYING file (all entries BSD-like)
+- (removed for now) tests/testagent/netsnmpagent.py and netsnmpapi.py is copied from [python-netsnmpagent](https://github.com/pief/python-netsnmpagent)
+ - Copyright (c) 2013 Pieter Hollants <pieter@hollants.com>
+ - Licensed under the GNU Public License (GPL) version 3
+- tests/ include MIBs that have been stripped from IETF RFCs
+
+Used
+- we import package netsnmp
+- we derive from class netsnmpagent
+
+Can GPLv3 work be bundled and used for unittests?
+
+GPLv3, comma 5, applies to "a work based on the Program":
+"You must license the entire work, as a whole, under this License to anyone who comes into possession of a copy. This License will therefore apply, along with any applicable section 7 additional terms, to the whole of the work, and all its parts, regardless of how they are packaged. This License gives no permission to license the work in any other way, but it does not invalidate such permission if you have separately received it."
+
 ## Planned features / requirements ##
 
 ### Table queries ###
