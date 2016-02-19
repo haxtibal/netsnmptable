@@ -1,5 +1,5 @@
 # netsnmptable #
-*A Python C Extension package to query SNMP tables and table subsets based on Net-SNMP libraries.*
+*A Python C Extension package to query SNMP tables and table subsets based on the Net-SNMP libraries.*
 
 ## Goals ##
 The project aims to bring SNMP table query functionality for Python.

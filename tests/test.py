@@ -71,7 +71,16 @@ def varbind_to_repr(self):
     """Can be dynamically added to Varbind objects, for nice pprint output"""
     return self.type + ":" + self.val
 
-class BasicTests(unittest.TestCase):
+class UtilTests(unittest.TestCase):
+    def test_str_to_varlen_iid(self):
+        iid = netsnmptable.str_to_varlen_iid("someVariableLengthString")
+        self.assertEqual(iid, [24, 115, 111, 109, 101, 86, 97, 114, 105, 97, 98, 108, 101, 76, 101, 110, 103, 116, 104, 83, 116, 114, 105, 110, 103])
+
+    def test_str_to_fixlen_iid(self):
+        iid = netsnmptable.str_to_fixlen_iid("someFixedLengthString")
+        self.assertEqual(iid, [115, 111, 109, 101, 70, 105, 120, 101, 100, 76, 101, 110, 103, 116, 104, 83, 116, 114, 105, 110, 103])
+
+class TableTests(unittest.TestCase):
     @classmethod
     def setUpClass(cls):
         setup_oids()
@@ -82,17 +91,14 @@ class BasicTests(unittest.TestCase):
         testagent.stop_server()
 
     def __init__(self, *args, **kwargs):
-        super(BasicTests, self).__init__(*args, **kwargs)
+        super(TableTests, self).__init__(*args, **kwargs)
         netsnmp.Varbind.__repr__ = MethodType(varbind_to_repr, None, netsnmp.Varbind)
         self.netsnmp_session = netsnmp.Session(Version=2, DestHost='localhost:1234', Community='public')
 
     def test_singleIdxTable(self):
         table = self.netsnmp_session.table_from_mib('TEST-MIB::singleIdxTable')
         tbldict = table.get_entries()
-        self.assertEqual(self.netsnmp_session.ErrorStr,
-            "",
-            msg="Error during SNMP request: %s" % self.netsnmp_session.ErrorStr
-            )
+        self.assertEqual(self.netsnmp_session.ErrorStr, "")
         self.assertEqual(self.netsnmp_session.ErrorNum, 0)
         self.assertEqual(self.netsnmp_session.ErrorInd, 0)
         self.assertIsNotNone(tbldict)
@@ -110,10 +116,7 @@ class BasicTests(unittest.TestCase):
     def test_multiIdxTable(self):
         table = self.netsnmp_session.table_from_mib('TEST-MIB::multiIdxTable')
         tbldict = table.get_entries()
-        self.assertEqual(self.netsnmp_session.ErrorStr,
-            "",
-            msg="Error during SNMP request: %s" % self.netsnmp_session.ErrorStr
-            )
+        self.assertEqual(self.netsnmp_session.ErrorStr, "")
         self.assertEqual(self.netsnmp_session.ErrorNum, 0)
         self.assertEqual(self.netsnmp_session.ErrorInd, 0)
         self.assertIsNotNone(tbldict)
@@ -131,58 +134,49 @@ class BasicTests(unittest.TestCase):
         self.assertEqual(tbldict[('ThisIsRow2', 2)].get('multiIdxTableEntryValue').val, "4")
         pprint.pprint(tbldict)
 
+    def test_get_entries_iid(self):
+        table = self.netsnmp_session.table_from_mib('TEST-MIB::multiIdxTable')
+        tbldict = table.get_entries(iid = netsnmptable.str_to_varlen_iid("ThisIsRow1"))
+        self.assertEqual(self.netsnmp_session.ErrorStr, "")
+        self.assertEqual(self.netsnmp_session.ErrorNum, 0)
+        self.assertEqual(self.netsnmp_session.ErrorInd, 0)
+        self.assertIsNotNone(tbldict)
+        self.assertIsNotNone(tbldict.get(('ThisIsRow1', 1)))
+        self.assertIsNotNone(tbldict.get(('ThisIsRow1', 2)))
+        self.assertEqual(tbldict[('ThisIsRow1', 1)].get('multiIdxTableEntryDesc').val, "ContentOfRow1.1_Column1")
+        self.assertEqual(tbldict[('ThisIsRow1', 1)].get('multiIdxTableEntryValue').val, "1")
+        self.assertEqual(tbldict[('ThisIsRow1', 2)].get('multiIdxTableEntryDesc').val, "ContentOfRow1.2_Column1")
+        self.assertEqual(tbldict[('ThisIsRow1', 2)].get('multiIdxTableEntryValue').val, "2")
+
+    def test_get_entries_max_repeaters(self):
+        table = self.netsnmp_session.table_from_mib('TEST-MIB::multiIdxTable')
+        # causes several getbulks
+        tbldict = table.get_entries(max_repeaters = 1)
+        self.assertEqual(self.netsnmp_session.ErrorStr, "")
+        self.assertEqual(self.netsnmp_session.ErrorNum, 0)
+        self.assertEqual(self.netsnmp_session.ErrorInd, 0)
+        self.assertIsNotNone(tbldict)
+        self.assertIsNotNone(tbldict.get(('ThisIsRow1', 1)))
+        self.assertIsNotNone(tbldict.get(('ThisIsRow1', 2)))
+        self.assertIsNotNone(tbldict.get(('ThisIsRow2', 1)))
+        self.assertIsNotNone(tbldict.get(('ThisIsRow2', 2)))
+        self.assertEqual(tbldict[('ThisIsRow1', 1)].get('multiIdxTableEntryDesc').val, "ContentOfRow1.1_Column1")
+        self.assertEqual(tbldict[('ThisIsRow1', 1)].get('multiIdxTableEntryValue').val, "1")
+        self.assertEqual(tbldict[('ThisIsRow1', 2)].get('multiIdxTableEntryDesc').val, "ContentOfRow1.2_Column1")
+        self.assertEqual(tbldict[('ThisIsRow1', 2)].get('multiIdxTableEntryValue').val, "2")
+        self.assertEqual(tbldict[('ThisIsRow2', 1)].get('multiIdxTableEntryDesc').val, "ContentOfRow2.1_Column1")
+        self.assertEqual(tbldict[('ThisIsRow2', 1)].get('multiIdxTableEntryValue').val, "3")
+        self.assertEqual(tbldict[('ThisIsRow2', 2)].get('multiIdxTableEntryDesc').val, "ContentOfRow2.2_Column1")
+        self.assertEqual(tbldict[('ThisIsRow2', 2)].get('multiIdxTableEntryValue').val, "4")
+
 #deactivated for now, as required mibs are not included in package
-class PrivateMibTests():
+class ExternalServiceTests():
     def __init__(self, *args, **kwargs):
         super(BasicTests, self).__init__(*args, **kwargs)
         netsnmp.Varbind.__repr__ = MethodType(varbind_to_repr, None, netsnmp.Varbind)
         self.netsnmp_session = netsnmp.Session(Version=2,
             DestHost='localhost',
             Community='public')
-
-    def test_parse_mib(self):
-        table = self.netsnmp_session.table_from_mib('MYTABLETEST::testTable')
-        pprint.pprint(table.columns)
-
-    def test_get_entries(self):
-        table = self.netsnmp_session.table_from_mib('MYTABLETEST::testTable')
-        tbldict = table.get_entries()
-        self.assertEqual(self.netsnmp_session.ErrorStr, "", msg="Error during SNMP request: %s" % self.netsnmp_session.ErrorStr)
-        self.assertEqual(self.netsnmp_session.ErrorNum, 0)
-        self.assertEqual(self.netsnmp_session.ErrorInd, 0)
-        self.assertIsNotNone(tbldict)
-        pprint.pprint(tbldict)
-
-    def test_get_entries_with_row_idx(self):
-        table = self.netsnmp_session.table_from_mib('MYTABLETEST::testTable')
-        tbldict = table.get_entries(iid = netsnmptable.str_to_varlen_iid("OuterIdx_2"))
-        self.assertEqual(self.netsnmp_session.ErrorStr, "", msg="Error during SNMP request: %s" % self.netsnmp_session.ErrorStr)
-        self.assertEqual(self.netsnmp_session.ErrorNum, 0)
-        self.assertEqual(self.netsnmp_session.ErrorInd, 0)
-        self.assertIsNotNone(tbldict)
-        pprint.pprint(tbldict)
-
-    def test_multiple_getbulk(self):
-        """This test forces multiple getbulks by setting max_repeaters to 1"""
-        table = self.netsnmp_session.table_from_mib('MYTABLETEST::testTable')
-        tbldict = table.get_entries(max_repeaters = 1)
-        self.assertEqual(self.netsnmp_session.ErrorStr, "", msg="Error during SNMP request: %s" % self.netsnmp_session.ErrorStr)
-        self.assertEqual(self.netsnmp_session.ErrorNum, 0)
-        self.assertEqual(self.netsnmp_session.ErrorInd, 0)
-        self.assertIsNotNone(tbldict)
-        pprint.pprint(tbldict)
-
-    def test_get_entries_print_varbinds(self):
-        table = self.netsnmp_session.table_from_mib('MYTABLETEST::testTable')
-        tbldict = table.get_entries()
-        self.assertEqual(self.netsnmp_session.ErrorStr, "", msg="Error during SNMP request: %s" % self.netsnmp_session.ErrorStr)
-        self.assertEqual(self.netsnmp_session.ErrorNum, 0)
-        self.assertEqual(self.netsnmp_session.ErrorInd, 0)
-        self.assertIsNotNone(tbldict)
-        pprint.pprint(tbldict)
-        print("Result at ['OuterIdx_1', 'InnerIdx_1']['aValue'] has value %s of type %s" %
-              (tbldict[('OuterIdx_1', 'InnerIdx_1')]['aValue'].type,
-               tbldict[('OuterIdx_1', 'InnerIdx_1')]['aValue'].val))
 
     def test_host_resources(self):
         table = self.netsnmp_session.table_from_mib('HOST-RESOURCES-MIB:hrStorageTable')

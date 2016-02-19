@@ -71,5 +71,5 @@ def str_to_fixlen_iid(index_str):
     Example: str_to_vlen_iid("dave") gives [ord('d'), ord('a'), ord('v'), ord('e')]
     Returns: List of integers
     """
-    return + [ord(element) for element in list(index_str)]
+    return [ord(element) for element in list(index_str)]
 
