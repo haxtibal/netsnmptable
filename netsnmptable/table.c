@@ -17,6 +17,7 @@
  ******************************************************************/
 
 #include <Python.h>
+#include <arpa/inet.h>
 #include "util.h"
 #include "table.h"
 
@@ -55,6 +56,8 @@ table_info_t* table_allocate(char* tablename) {
     table_info->column_scheme.name_length = 0;
     table_info->column_scheme.start_idx_length = 0;
     table_info->column_scheme.position_map = NULL;
+    table_info->index_vars = NULL;
+    table_info->index_vars_nrof = 0;
 
     return table_info;
 }
@@ -68,9 +71,16 @@ void table_deallocate(table_info_t* table) {
                 Py_DECREF(table->column_scheme.column[col].py_label_str);
             }
             free(table->column_scheme.column);
+            table->column_scheme.column = NULL;
         }
-        if (table->column_scheme.position_map)
+        if (table->column_scheme.position_map) {
             free(table->column_scheme.position_map);
+            table->column_scheme.position_map = NULL;
+        }
+        if (table->index_vars) {
+            free(table->index_vars);
+            table->index_vars = NULL;
+        }
         free(table);
     }
 }
@@ -118,7 +128,77 @@ static void get_table_nodes(struct table_tree_pointer* tbl_tree, oid* table_oid,
 #endif /* NETSNMP_DISABLE_MIB_LOADING */
 }
 
-/* Convert table (array of OIDs) to table name */
+/*
+ * Get number and type of indexes from MIB.
+ * With this information parse_oid_indexes() can extract index values from the response OIDs later.
+ * Returns number of indexes on success, -1 otherwise.
+ */
+static int get_table_indexes(index_scheme_t **index_var, struct table_tree_pointer* tbl_tree) {
+    struct index_list *index;
+	size_t list_size = sizeof(index_scheme_t);
+    int count=0, i=0;
+
+    *index_var = NULL;
+
+    for (index = tbl_tree->conceptual_row->indexes; index; index = index->next) {
+    	struct tree *indexnode = NULL;
+    	unsigned char type;
+    	int length = 0;
+
+    	oid name[MAX_OID_LEN];
+    	size_t name_length = MAX_OID_LEN;
+    	if (!snmp_parse_oid(index->ilabel, name, &name_length) ||
+    			(NULL == (indexnode = get_tree(name, name_length, get_tree_head())))) {
+    		DBPRT(D_DBG, "get_table_indexes: Can't get index from MIB.\n");
+    		return -1;
+    	}
+
+    	type = mib_to_asn_type(indexnode->type);
+    	if (type == (u_char) -1) {
+    		DBPRT(D_DBG, "get_table_indexes: Bad index type.\n");
+    	    return -1;
+    	} else {
+            /*
+             * if implied, mark it as such. also mark fixed length
+             * octet strings as implied (ie no length prefix) as well.
+             * */
+            if ((indexnode->type == TYPE_OCTETSTR) &&  /* octet str */
+                (indexnode->ranges != NULL) &&         /* & has range */
+                (indexnode->ranges->next == NULL) &&   /*   but only one */
+                (indexnode->ranges->high == indexnode->ranges->low) /*   & high==low */ ) {
+                type |= ASN_PRIVATE;
+                length = indexnode->ranges->high;
+            }
+            else if (index->isimplied) {
+                type |= ASN_PRIVATE;
+            }
+
+    		if (*index_var == NULL) {
+    			*index_var = malloc(list_size);
+    		}
+    		else {
+    			list_size += sizeof(index_scheme_t);
+    			*index_var = realloc(*index_var, list_size);
+    		}
+    		index_scheme_t *index_scheme = *index_var;
+			memset(&index_scheme[count].vars, 0x00, sizeof(netsnmp_variable_list));
+			index_scheme[count].type = type;
+			index_scheme[count].val_len = length;
+	    	count++;
+    	}
+    }
+
+    for (i=1; i<count; i++) {
+    	index_scheme_t *index_scheme = *index_var;
+    	index_scheme[i-1].vars.next_variable = &index_scheme[i].vars;
+    }
+
+    return count;
+}
+
+/*
+ * Convert table (array of OIDs) to table name.
+ */
 static char* get_table_name(oid* table_oid, size_t oid_len) {
     char *table_name = NULL, *buf = NULL;
     size_t out_len = 0, buf_len = 0;
@@ -180,6 +260,8 @@ int table_get_field_names(table_info_t* table_info) {
     }
 
     table_info->table_name = get_table_name(table_info->root, table_info->rootlen - 1);
+    table_info->index_vars_nrof = get_table_indexes(&table_info->index_vars, &tbl_tree);
+
     DBPRT(D_DBG, ("Tablename = %s\n", table_info->table_name));
 
     /* now iterate trough column fields */
@@ -235,7 +317,6 @@ int table_get_field_names(table_info_t* table_info) {
 
     if (column_info->fields == 0) {
         DBPRT(D_DBG, ("No column OIDs found MIB for %s\n", table_info->table_name));
-        PyErr_SetString(PyExc_RuntimeError, "No column OIDs found MIB");
         return FAILURE;
     }
 
@@ -290,93 +371,93 @@ static column_t* get_column_validated(table_info_t* table_info,
 }
 
 /*
- * The representation of the returned instance identifier depends
- * on netsnmp EXTENDED_INDEX and OID_OUTPUT_FORMAT setttings.
+ * Parse index values from a response oid, and create a python tuple from it.
+ * This tuple will be used as key in the table dictionary later.
  */
-char* find_instance_id(char* buf, char* table_name) {
-    char* name_p;
-    if (netsnmp_ds_get_boolean(NETSNMP_DS_LIBRARY_ID,
-            NETSNMP_DS_LIB_EXTENDED_INDEX)) {
-        name_p = strchr(buf, '['); // find first occurrence of '[' in buf
-    } else {
-        switch (netsnmp_ds_get_int(NETSNMP_DS_LIBRARY_ID,
-                NETSNMP_DS_LIB_OID_OUTPUT_FORMAT)) {
-        case NETSNMP_OID_OUTPUT_MODULE:
-        case 0:
-            name_p = strchr(buf, ':') + 1;
-            break;
-        case NETSNMP_OID_OUTPUT_SUFFIX:
-            name_p = buf;
-            break;
-        case NETSNMP_OID_OUTPUT_FULL:
-        case NETSNMP_OID_OUTPUT_NUMERIC:
-        case NETSNMP_OID_OUTPUT_UCD:
-            name_p = buf + strlen(table_name) + 1;
-            name_p = strchr(name_p, '.') + 1;
-            break;
-        default:
-            DBPRT(D_DBG, ("Invalid output format: %d\n",
-                            netsnmp_ds_get_int(NETSNMP_DS_LIBRARY_ID,
-                                    NETSNMP_DS_LIB_OID_OUTPUT_FORMAT)));
-            PyErr_SetString(PyExc_RuntimeError, "Invalid output format");
-            return NULL;
-        }
+PyObject* create_index_tuple(oid* start, int max_len, index_scheme_t *index_varlist, int nr_of_index) {
+    int count = 0;
+	netsnmp_variable_list *index_var = NULL;
+	PyObject* py_instance_tuple = PyTuple_New(nr_of_index);
 
-        name_p = strchr(name_p, '.');
-        if (name_p != NULL) {
-            name_p++; /* Move on to the instance identifier */
-        }
-    }
-    return name_p;
+	/* restore index information, because parse_oid_indexes overwrites some values in buffer */
+	for (count=0; count<nr_of_index; count++) {
+		index_varlist[count].vars.type = index_varlist[count].type;
+		index_varlist[count].vars.val_len = index_varlist[count].val_len;
+	}
+
+	if (parse_oid_indexes(start, max_len, &index_varlist[0].vars)) {
+		DBPRT(D_DBG, ("parse_oid_indexes failed.\n"));
+		return NULL;
+	}
+
+	for (count = 0; count < nr_of_index; count++) {
+		index_var = &index_varlist[count].vars;
+		PyObject* py_subinstance = NULL;
+		char buf[MAX_OID_LEN*21];
+		char *cur = buf, *const end = buf + sizeof(buf);
+	    int nrof = 0;
+		int i;
+
+		switch (index_var->type) {
+	    case ASN_INTEGER:
+	    case ASN_UNSIGNED:
+	    case ASN_TIMETICKS:
+	    case ASN_COUNTER:
+	    case ASN_UINTEGER:
+	    	/* index value will be an integer on python side */
+	    	py_subinstance = PyInt_FromLong(*index_var->val.integer);
+	    	break;
+	    case ASN_OBJECT_ID:
+	    case ASN_PRIV_IMPLIED_OBJECT_ID:
+	    case ASN_PRIV_INCL_RANGE:
+	    case ASN_PRIV_EXCL_RANGE:
+	    	/* index value will be a string on python side, containing dotted numbers like "1.2.3.4" */
+	    	nrof = index_var->val_len / sizeof(oid);
+	    	for (i=0; i < nrof; i++) {
+		    	cur += snprintf(cur, end-cur, "%lu", index_var->val.objid[i]);
+		    	if (i < (nrof-1)) {
+		    		*cur = '.';
+		    		cur++;
+		    	}
+	    	}
+	    	*cur = '\0';
+	    	py_subinstance = PyString_FromStringAndSize((const char *) buf, cur-buf);
+	    	break;
+	    case ASN_IPADDRESS:
+	    	/* snmp_build_var_op makes a string for ASN_IPADDRESS, e.g. containing '\x01\x00\xa8\xc0' for 192.168.0.1.
+	    	   Turn it into an IP address string in dotted notation. */
+	    	py_subinstance = PyString_FromString(inet_ntoa(*(struct in_addr*) index_var->val.string));
+	    	break;
+	    case ASN_PRIV_IMPLIED_OCTET_STR:
+	    case ASN_OCTET_STR:
+	    case ASN_BIT_STR:
+	    case ASN_OPAQUE:
+	    case ASN_NSAP:
+	    	/* index value will be a string on python side */
+	    	py_subinstance = PyString_FromStringAndSize((const char *) index_var->val.string, index_var->val_len);
+	    	break;
+	    default:
+	    	break;
+		}
+		PyTuple_SetItem(py_instance_tuple, count, py_subinstance);
+	}
+	return py_instance_tuple;
 }
 
-static int store_varbind(PyObject* py_table_dict, PyObject* py_varbind,
-        char* row_index_str, column_t* column,
-        netsnmp_variable_list *result_varbind) {
-    PyObject* py_col_dict = NULL;
-    char *buf = NULL;
-    char *instance_id = NULL;
-    const char delimiter[] = ".";
-    size_t buf_len = 0;
-    size_t out_len = 0;
-
-    DBPRT(D_DBG, ("add row %s to result dictionary\n", row_index_str));
-
-    sprint_realloc_value((u_char **) &buf, &buf_len, &out_len, 1,
-            result_varbind->name, result_varbind->name_length, result_varbind);
-
-    /* Get number of sub-instances. */
-    int i, count;
-    for (i = 0, count = 1; i < strlen(row_index_str); i++)
-        if (row_index_str[i] == '.')
-            count++;
-
-    /* Decompose instance string into parts. */
-    //DBPRT(D_DBG, ("Create tuple with %i elements\n", count));
-    PyObject* py_instance_tuple = PyTuple_New(count); // create function, we've got ownership of instance_tuple
-    PyObject* py_subinstance = NULL;
-    instance_id = strtok(row_index_str, delimiter);
-    i = 0;
-    while (instance_id) {
-        if (instance_id[0] == '"') {
-            //DBPRT(D_DBG, ("Found string-type sub instance %s\n", instance_id));
-            instance_id++;
-            py_subinstance = PyString_FromStringAndSize(instance_id,
-                    strlen(instance_id) - 1); // create function, we've got ownership of ref-to-subinstance
-        } else {
-            //DBPRT(D_DBG, ("Assume int-type sub instance %s\n", instance_id));
-            py_subinstance = PyInt_FromString(instance_id, NULL, 10); // create function, we've got ownership of ref-to-subinstance
-        }
-        PyTuple_SetItem(py_instance_tuple, i++, py_subinstance); // PyTuple_SetItem steals ownership, now ref-to-subinstance is only borrowed
-        instance_id = strtok(NULL, delimiter);
-    }
+/*
+ * Create a python tuple from index_vars, use it as key in py_table_dict.
+ * Insert py_varbind into a python dictionary.
+ */
+static int store_varbind(PyObject* py_table_dict, PyObject* py_index_tuple, column_t* column, PyObject* py_varbind) {
+	PyObject* py_col_dict = NULL;
+	size_t out_len = 0;
 
     // do we start a new row?
-    py_col_dict = PyDict_GetItem(py_table_dict, py_instance_tuple); // PyDict_GetItem() only borrows us ref-to-col_dict
+    py_col_dict = PyDict_GetItem(py_table_dict, py_index_tuple); // PyDict_GetItem() only borrows us ref-to-col_dict
     if (!py_col_dict) {
         DBPRT(D_DBG, ("Creating new column dict\n"));
         py_col_dict = PyDict_New(); // create function, we've got ownership of ref-to-col_dict
-        PyDict_SetItem(py_table_dict, py_instance_tuple, py_col_dict); // PyDict_SetItem() handles INCREF on its own
+        PyDict_SetItem(py_table_dict, py_index_tuple, py_col_dict); // PyDict_SetItem() handles INCREF on its own
         Py_XDECREF(py_col_dict); // now ref-to-coldict is borrowed from rows_dict
     }
 
@@ -417,8 +498,7 @@ int response_err(netsnmp_pdu *response) {
  * buf - parsed output from a netsnmp print_objid function
  * buf_len - size of buf
  */
-PyObject* create_varbind(netsnmp_variable_list *vars, struct tree *tp,
-        u_char* buf, size_t buf_len, int sprintval_flag) {
+PyObject* create_varbind(netsnmp_variable_list *vars, struct tree *tp, int sprintval_flag) {
     int type;
     int getlabel_flag = NO_FLAGS;
     char type_str[MAX_TYPE_NAME_LEN];
@@ -469,11 +549,11 @@ PyObject* table_getbulk_sub_entries(table_info_t* table_info,
     u_char *buf = NULL;
     size_t buf_len = 0;
     size_t out_len;
-    char *name_p = NULL;
     int exitval = SUCCESS;
     column_t* column;
     int tmp_dont_breakdown_oids;
     PyObject* py_table_dict = NULL;
+    PyObject* py_keytuple = NULL;
     PyObject* py_varbind = NULL;
     int nr_of_requested_columns = 0;
     int response_vb_count = 0;
@@ -603,20 +683,17 @@ PyObject* table_getbulk_sub_entries(table_info_t* table_info,
                     DBPRT(D_DBG, ("Update latest varbind pointer\n"));
                     column->last_var = vars;
 
-                    DBPRT(D_DBG, ("find row to which this varbind belongs\n"));
-                    if ((name_p = find_instance_id((char*) buf,
-                            table_info->table_name)) == NULL) {
-                        /* don't seem to include instance subidentifiers! */
-                        DBPRT(D_DBG, ("don't seem to include instance subidentifiers\n"));
+                    /* name_p now points to instance id part of OID */
+                    py_keytuple = create_index_tuple(&vars->name[table_info->rootlen+1], vars->name_length-table_info->rootlen-1, table_info->index_vars, table_info->index_vars_nrof);
+                    py_varbind = create_varbind(vars, tp, table_info->sprintval_flag);
+                    if (py_keytuple == NULL || py_varbind == NULL) {
+                        DBPRT(D_DBG, ("Couldn't get index or variable from response varbind.\n"));
                         running = 0;
                         exitval = FAILURE;
                         break;
-                    } DBPRT(D_DBG, ("name_p now points to %s in %s\n", name_p, buf));
+                    }
+                    store_varbind(py_table_dict, py_keytuple, column, py_varbind);
 
-                    /* name_p now points to instance id part of OID */
-                    py_varbind = create_varbind(vars, tp, buf, buf_len, table_info->sprintval_flag);
-                    store_varbind(py_table_dict, py_varbind, name_p, column,
-                            vars);
                     Py_DECREF(py_varbind);
 
                     buf = NULL;

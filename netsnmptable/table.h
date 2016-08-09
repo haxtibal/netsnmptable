@@ -27,6 +27,12 @@ typedef struct column_scheme_s {
     column_t** position_map; // maps column by number in response to a column entry
 } column_scheme_t;
 
+typedef struct index_scheme_s {
+	netsnmp_variable_list vars;
+	unsigned char type;
+	int val_len;
+} index_scheme_t;
+
 typedef struct t_info_s {
     oid root[MAX_OID_LEN];
     size_t rootlen;
@@ -34,6 +40,8 @@ typedef struct t_info_s {
     int getlabel_flag;
     int sprintval_flag;
     column_scheme_t column_scheme;
+    index_scheme_t* index_vars;
+    int index_vars_nrof;
 } table_info_t;
 
 extern table_info_t* table_allocate(char* tablename);

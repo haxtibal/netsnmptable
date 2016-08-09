@@ -130,6 +130,109 @@ multiIdxTableEntryValue OBJECT-TYPE
         "A multiIdxTableEntry's value."
     ::= { multiIdxTableEntry 4 }
 
+ipaddrIdxTable OBJECT-TYPE
+    SYNTAX      SEQUENCE OF ipaddrIdxTableEntry
+    MAX-ACCESS  not-accessible
+    STATUS      current
+    DESCRIPTION
+        "Conceptual table node of ipaddrIdxTable. Let's us test tables with indexes of type OBJID."
+    ::= { testTables 3 }
+
+ipaddrIdxTableEntry ::=
+    SEQUENCE {
+        ipaddrIdxTableEntryIndex  IpAddress,
+        ipaddrIdxTableEntryDesc   DisplayString,
+        ipaddrIdxTableEntryValue  IpAddress
+    }
+
+ipaddrIdxTableEntry OBJECT-TYPE
+    SYNTAX      ipaddrIdxTableEntry
+    MAX-ACCESS  not-accessible
+    STATUS      current
+    DESCRIPTION
+        "Conceptual row node of ipaddrIdxTable."
+    INDEX { ipaddrIdxTableEntryIndex }
+    ::= { ipaddrIdxTable 1 }
+
+ipaddrIdxTableEntryIndex OBJECT-TYPE
+    SYNTAX      IpAddress
+    MAX-ACCESS  not-accessible
+    STATUS      current
+    DESCRIPTION
+        "The index column used to generate string indices into ipaddrIdxTable."
+    ::= { ipaddrIdxTableEntry 1 }
+
+ipaddrIdxTableEntryDesc OBJECT-TYPE
+    SYNTAX      DisplayString
+    MAX-ACCESS  read-only
+    STATUS      current
+    DESCRIPTION
+        "A ipaddrIdxTableEntry's description."
+    ::= { ipaddrIdxTableEntry 2 }
+
+ipaddrIdxTableEntryValue OBJECT-TYPE
+    SYNTAX      Integer32
+    MAX-ACCESS  read-only
+    STATUS      current
+    DESCRIPTION
+        "A ipaddrIdxTableEntry's value."
+    ::= { ipaddrIdxTableEntry 3 }
+
+objidIdxTable OBJECT-TYPE
+    SYNTAX      SEQUENCE OF objidIdxTableEntry
+    MAX-ACCESS  not-accessible
+    STATUS      current
+    DESCRIPTION
+        "Conceptual table node of objidIdxTable. Let's us test tables with indexes of type OBJID."
+    ::= { testTables 4 }
+
+objidIdxTableEntry ::=
+    SEQUENCE {
+        objidIdxTableEntryIndex  OBJECT IDENTIFIER,
+        objidIdxTableEntryDesc   DisplayString,
+        objidIdxTableEntryValue  Integer32
+    }
+
+objidIdxTableEntry OBJECT-TYPE
+    SYNTAX      objidIdxTableEntry
+    MAX-ACCESS  not-accessible
+    STATUS      current
+    DESCRIPTION
+        "Conceptual row node of objidIdxTable."
+    INDEX { objidIdxTableEntryIndex }
+    ::= { objidIdxTable 1 }
+
+objidIdxTableEntryIndex OBJECT-TYPE
+    SYNTAX      OBJECT IDENTIFIER
+    MAX-ACCESS  not-accessible
+    STATUS      current
+    DESCRIPTION
+        "The index column used to generate string indices into objidIdxTable."
+    ::= { objidIdxTableEntry 1 }
+
+objidIdxTableEntryDesc OBJECT-TYPE
+    SYNTAX      DisplayString
+    MAX-ACCESS  read-only
+    STATUS      current
+    DESCRIPTION
+        "A objidIdxTableEntry's description."
+    ::= { objidIdxTableEntry 2 }
+
+objidIdxTableEntryValue OBJECT-TYPE
+    SYNTAX      Integer32
+    MAX-ACCESS  read-only
+    STATUS      current
+    DESCRIPTION
+        "A objidIdxTableEntry's value."
+    ::= { objidIdxTableEntry 3 }
+
+
+
+
+
+
+
+
 tableTestMIBGroups      OBJECT IDENTIFIER ::= { MIBConformance 1 }
 
 tableTestMIBTablesGroup OBJECT-GROUP

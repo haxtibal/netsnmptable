@@ -52,11 +52,11 @@ import netsnmptable
 
 # create a table object
 session = netsnmp.Session(Version=2, DestHost='localhost', Community='public')
-table = session.table_from_mib('HOST-RESOURCES-MIB:hrStorageTable')
+table = session.table_from_mib('HOST-RESOURCES-MIB::hrStorageTable')
 
 # go and get the table...
 tbldict = table.get_entries()
-if (self.netsnmp_session.ErrorNum):
+if (netsnmp_session.ErrorNum):
     print("Can't query HOST-RESOURCES-MIB:hrStorageTable.")
     exit(-1)
 
@@ -163,6 +163,10 @@ Results in
 - SMIv2 Conceptual Row sub-identifier (also known as Entry), [RFC 4181 Chapter 4.6.5](https://tools.ietf.org/html/rfc4181#section-4.6.5)
 - SNMP GetBulkRequest-PDU specification, [RFC 3416 Chapter 4.2.3](https://tools.ietf.org/html/rfc3416#section-4.2.3)
 
+## Credits ##
+Thanks to Pieter Hollants <pieter@hollants.com> for [python-netsnmpagent](https://github.com/pief/python-netsnmpagent).
+The tests.testagent package is heavily based on it.
+
 ## Related work ##
 Other people also tackle the hassle of dealing with SNMP in Python and found interesting approaches.
 Below is an incomplete and unordered list.
@@ -177,6 +181,3 @@ Below is an incomplete and unordered list.
 ### Table handling ###
 - [HNMP](https://github.com/trehn/hnmp) - PySNMP based package, to "ease the pain of retrieving and processing data from SNMP-capable devices". Let's you define table structures manually, rather than parsing them from MIB, because "Depending on MIB files would make the calling piece of code harder to distribute". 
 - [A Munin Plugin](https://raw.githubusercontent.com/munin-monitoring/contrib/master/plugins/snmp/snmp__airport), get's table via netsnmp.snmpwalk and converts it to a dictionary.
-
-### Other SNMP tools ###
-- [python-netsnmpagent](https://github.com/pief/python-netsnmpagent) - Let's you implement agents in Python (incorporates netsnmp via ctypes). Very useful for testing.

@@ -4,11 +4,11 @@ import netsnmp
 import netsnmptable
 
 ns = netsnmp.Session(Version=2, DestHost='localhost', Community='public')
-table = ns.table_from_mib(netsnmp.Varbind('HOST-RESOURCES-MIB:hrStorageTable'))
+table = ns.table_from_mib('HOST-RESOURCES-MIB::hrStorageTable')
 tbldict = table.get_entries()
 
-if (self.netsnmp_session.ErrorNum):
-    print("Can't query HOST-RESOURCES-MIB:hrStorageTable.")
+if (ns.ErrorNum):
+    print("Can't query HOST-RESOURCES-MIB::hrStorageTable.")
     exit(-1)
 
 print("{:10s} {:25s} {:10s} {:10s} {:10s}".format("Index", "Description", "Units", "Size", "Used"))

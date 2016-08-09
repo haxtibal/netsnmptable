@@ -2,27 +2,47 @@
 
 ## Refactor API ##
 
-### Avoid passing netsnmp.Session to Table ###
-With current API:
-```python
-import netsnmp
-import netsnmptable
-table = netsnmptable.Table(netsnmp.Session(Version=2,
-            DestHost='localhost',
-            Community='public'))
-table.parse_mib(netsnmp.Varbind('HOST-RESOURCES-MIB:hrStorageTable', 0))
-table.fetch()
-```
+### Higher Level API ###
 
-Better:
+Some ideas:
+
 ```python
-import netsnmp
-import netsnmptable
-session = netsnmp.Session(Version=2, DestHost='localhost', Community='public')
-table = session.table_from_mib(netsnmp.Varbind('HOST-RESOURCES-MIB:hrStorageTable', 0))
-table.fetch()
+class SnmpRowObject(object):
+    "Base type for SNMP row data objects. Instances represent one table row. Column instances will become attributes."
+    snmp_mib = None
+    snmp_tablename = None
+    snmp_rowstatus = None
+    snmp_columns = None
+
+    def __init__(self, **kwargs):
+        for attr in self.snmp_columns.keys():
+            setattr(self, attr, kwargs[attr] if attr in kwargs else self.snmp_columns[attr]['default'])
+
+    def get_row_status(self):
+       "Return the RowStatus value for this row, if the table supports RowStatus semantics."
+       # ...
+
+    def __str__(self):
+       "Give string representation of the row."
+       # ...
+
+class SnmpTableHandler(object):
+    def __init__(self, netsnmp_session = None, class = None):
+        "Create a high level table handler. The class argument is a specialized SnmpRowObject and determines the table structure."
+        # ...
+
+    def get_rows(self):
+       "Retrieve all rows in the table. Transform them to class type and return them in a list."
+       # ...
+
+    def create_row(self, snmp_row_obj, index):
+       "Perform createAndGo(4) as defined in SNMPv2-TC::RowStatus."
+       # ...
+
+    def destroy_row(self, index):
+       "Perform destroy(6) as defined in SNMPv2-TC::RowStatus."
+       # ...
 ```
-Done. But needs monkey patching for now.
 
 ### Do it like the Perl Module? ###
 Evaluate the [table API of Net::SNMP Perl Module](http://cpansearch.perl.org/src/DTOWN/Net-SNMP-v6.0.1/examples/table.pl) to get some ideas.

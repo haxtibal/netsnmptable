@@ -45,8 +45,11 @@ PyObject* netsnmptable_parse_mib(PyObject *self, PyObject *args) {
                     goto done;
                 }
 
-                if (table_get_field_names(tbl) < 0)
+                if (table_get_field_names(tbl) < 0) {
+                	PyErr_SetString(PyExc_RuntimeError, "Error while parsing table structure from MIB.");
+                	ret_exceptional = 1;
                     goto done;
+                }
 
                 for (col = 0; col < tbl->column_scheme.fields; col++) {
                     PyList_Append(py_columns_list,
@@ -145,7 +148,7 @@ PyObject* netsnmptable_fetch(PyObject *self, PyObject *args) {
             goto done;
         }
 
-        if (iid) {
+        if (iid && iid != Py_None) {
             py_netsnmp_attr_get_oid(iid, tbl->column_scheme.start_idx,
                     sizeof(tbl->column_scheme.start_idx),
                     &tbl->column_scheme.start_idx_length);
