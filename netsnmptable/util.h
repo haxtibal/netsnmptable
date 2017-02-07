@@ -9,6 +9,7 @@ typedef struct tree SnmpMibNode;
 
 /* Wrapper around fprintf(stderr, ...) for clean and easy debug output. */
 extern int _debug_level;
+
 #ifdef  DEBUGGING
 #define DBPRT(severity, otherargs)                  \
     do {                                \

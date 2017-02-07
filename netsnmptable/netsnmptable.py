@@ -40,8 +40,6 @@ class Table(object):
             ErrorStr, ErrorNum and ErrorInd are updated.
 
         """
-        #if (iid):
-        #    self._set_start_index(row_index)
         self.max_repeaters = max_repeaters
         res = interface.table_fetch(self, iid)
         return res

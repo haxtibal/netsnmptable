@@ -133,6 +133,7 @@ class BasicTests(unittest.TestCase):
     def test_multiIdxTable(self):
         table = self.netsnmp_session.table_from_mib('TEST-MIB::multiIdxTable')
         tbldict = table.get_entries()
+        print(tbldict)
         self.assertEqual(self.netsnmp_session.ErrorStr,
             "",
             msg="Error during SNMP request: %s" % self.netsnmp_session.ErrorStr
@@ -153,6 +154,32 @@ class BasicTests(unittest.TestCase):
         self.assertEqual(tbldict[('ThisIsRow2', 2)].get('multiIdxTableEntryDesc').val, "ContentOfRow2.2_Column1")
         self.assertEqual(tbldict[('ThisIsRow2', 2)].get('multiIdxTableEntryValue').val, "4")
         pprint.pprint(tbldict)
+
+    def test_multiIdxTable_subset(self):
+        table = self.netsnmp_session.table_from_mib('TEST-MIB::multiIdxTable')
+        tbldict = table.get_entries(iid=netsnmptable.str_to_varlen_iid("ThisIsRow1"))
+        print(tbldict)
+        self.assertEqual(self.netsnmp_session.ErrorStr,
+            "",
+            msg="Error during SNMP request: %s" % self.netsnmp_session.ErrorStr
+            )
+        self.assertEqual(len(tbldict), 2)
+        self.assertEqual(tbldict[('ThisIsRow1', 1)].get('multiIdxTableEntryDesc').val, "ContentOfRow1.1_Column1")
+        self.assertEqual(tbldict[('ThisIsRow1', 1)].get('multiIdxTableEntryValue').val, "1")
+        self.assertEqual(tbldict[('ThisIsRow1', 2)].get('multiIdxTableEntryDesc').val, "ContentOfRow1.2_Column1")
+        self.assertEqual(tbldict[('ThisIsRow1', 2)].get('multiIdxTableEntryValue').val, "2")
+
+    def test_multiIdxTable_exact_row(self):
+        table = self.netsnmp_session.table_from_mib('TEST-MIB::multiIdxTable')
+        tbldict = table.get_entries(iid=netsnmptable.str_to_varlen_iid("ThisIsRow1") + [2])
+        print(tbldict)
+        self.assertEqual(self.netsnmp_session.ErrorStr,
+            "",
+            msg="Error during SNMP request: %s" % self.netsnmp_session.ErrorStr
+            )
+        self.assertEqual(len(tbldict), 1)
+        self.assertEqual(tbldict[('ThisIsRow1', 2)].get('multiIdxTableEntryDesc').val, "ContentOfRow1.2_Column1")
+        self.assertEqual(tbldict[('ThisIsRow1', 2)].get('multiIdxTableEntryValue').val, "2")
 
     def test_ipAddrIdxTable(self):
         table = self.netsnmp_session.table_from_mib('TEST-MIB::ipaddrIdxTable')

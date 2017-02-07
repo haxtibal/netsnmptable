@@ -455,7 +455,6 @@ int __send_sync_pdu(void *ss, netsnmp_pdu *pdu,
             STR_BUF_SIZE);
             *err_num = (int) (*response)->errstat;
             *err_ind = (*response)->errindex;
-            status = (*response)->errstat;
             break;
         }
         break;
