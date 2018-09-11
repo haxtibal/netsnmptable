@@ -462,7 +462,7 @@ int __send_sync_pdu(void *ss, netsnmp_pdu *pdu,
     case STAT_TIMEOUT:
     case STAT_ERROR:
 #ifdef NETSNMP_SINGLE_API
-        snmp_sess_error(snmp_sess_session(ss), err_num, err_ind, &tmp_err_str);
+        snmp_sess_error(ss, err_num, err_ind, &tmp_err_str);
 #else
         snmp_error((netsnmp_session*) ss, err_num, err_ind, &tmp_err_str);
 #endif
